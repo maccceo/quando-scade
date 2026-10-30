@@ -514,5 +514,9 @@
     navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
 
+  // Ensure confirm never shows on boot (CSS [hidden] can be overridden by display:flex).
+  els.confirmOverlay.hidden = true;
+  confirmResolver = null;
+
   render();
 })();
