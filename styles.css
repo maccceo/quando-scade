@@ -435,7 +435,12 @@ button {
   border: 1.5px solid color-mix(in srgb, var(--danger) 25%, var(--line));
 }
 
-.confirm-overlay {
+/* display:flex must not override [hidden] — that made the dialog visible on load. */
+.confirm-overlay[hidden] {
+  display: none !important;
+}
+
+.confirm-overlay:not([hidden]) {
   position: fixed;
   inset: 0;
   z-index: 70;
