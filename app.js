@@ -3,7 +3,8 @@
 
   const STORAGE_KEY = "scadenze.products.v1";
   const NAMES_KEY = "scadenze.names.v1";
-  const SOON_DAYS = 7;
+  /** Inclusive window: today through +4 days counts as soon-to-expire. */
+  const SOON_DAYS = 4;
 
   /** @typedef {{ id: string, name: string, expiry: string }} Product */
 
@@ -12,10 +13,7 @@
   const els = {
     productList: $("productList"),
     emptyState: $("emptyState"),
-    soonBanner: $("soonBanner"),
-    soonText: $("soonText"),
     subtitle: $("subtitle"),
-    filterSoon: $("filterSoon"),
     fabAdd: $("fabAdd"),
     navHome: $("navHome"),
     navAdd: $("navAdd"),
@@ -33,8 +31,12 @@
     toast: $("toast"),
   };
 
-  let filterSoonOnly = false;
   let toastTimer = 0;
+
+  const ICON_EDIT =
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.12 2.12 0 0 0-3-3L5 17v3zM13.5 6.5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const ICON_DELETE =
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 8h14M10 11v6M14 11v6M9 8V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M7 8l1 12a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   function loadProducts() {
     try {
@@ -188,10 +190,16 @@
 
   function renderSuggestions(query) {
     const q = query.trim().toLowerCase();
-    const names = loadNames();
-    const matches = q
-      ? names.filter((n) => n.toLowerCase().includes(q)).slice(0, 8)
-      : names.slice(0, 6);
+    // Only show after the user has typed something — never on empty focus/open.
+    if (!q) {
+      els.suggestions.hidden = true;
+      els.suggestions.innerHTML = "";
+      return;
+    }
+
+    const matches = loadNames()
+      .filter((n) => n.toLowerCase().includes(q))
+      .slice(0, 8);
 
     if (!matches.length) {
       els.suggestions.hidden = true;
@@ -221,41 +229,14 @@
   }
 
   function render() {
-    const all = sortedProducts(loadProducts());
-    const soonCount = all.filter((p) => daysUntil(p.expiry) <= SOON_DAYS).length;
-    const expiredCount = all.filter((p) => daysUntil(p.expiry) < 0).length;
-    const list = filterSoonOnly
-      ? all.filter((p) => daysUntil(p.expiry) <= SOON_DAYS)
-      : all;
+    const list = sortedProducts(loadProducts());
 
     els.subtitle.textContent =
-      all.length === 0
+      list.length === 0
         ? "I tuoi prodotti"
-        : all.length === 1
+        : list.length === 1
           ? "1 prodotto"
-          : `${all.length} prodotti`;
-
-    if (all.length === 0) {
-      els.soonBanner.hidden = true;
-    } else if (expiredCount > 0) {
-      els.soonBanner.hidden = false;
-      els.soonBanner.dataset.level = "expired";
-      els.soonText.textContent =
-        expiredCount === 1
-          ? "1 prodotto scaduto — controlla prima"
-          : `${expiredCount} prodotti scaduti — controlla prima`;
-    } else if (soonCount > 0) {
-      els.soonBanner.hidden = false;
-      els.soonBanner.dataset.level = "soon";
-      els.soonText.textContent =
-        soonCount === 1
-          ? "1 prodotto prossimo alla scadenza"
-          : `${soonCount} prodotti prossimi alla scadenza`;
-    } else {
-      els.soonBanner.hidden = false;
-      els.soonBanner.dataset.level = "ok";
-      els.soonText.textContent = "Niente in scadenza nei prossimi 7 giorni";
-    }
+          : `${list.length} prodotti`;
 
     els.emptyState.hidden = list.length > 0;
     els.productList.innerHTML = "";
@@ -270,15 +251,15 @@
 
       const pc = pillClass(days);
       li.innerHTML = `
+        <div class="item-actions">
+          <button type="button" class="icon-action" data-edit="${p.id}" aria-label="Modifica">${ICON_EDIT}</button>
+          <button type="button" class="icon-action danger" data-del="${p.id}" aria-label="Elimina">${ICON_DELETE}</button>
+        </div>
         <button type="button" class="product-main" data-edit="${p.id}">
           <p class="product-name">${escapeHtml(p.name)}</p>
           <p class="product-meta">${urgencyLabel(days)}</p>
         </button>
         <span class="expiry-pill ${pc}">${formatExpiryShort(p.expiry)}</span>
-        <div class="item-actions">
-          <button type="button" class="tiny" data-edit="${p.id}">Modifica</button>
-          <button type="button" class="tiny danger" data-del="${p.id}">Elimina</button>
-        </div>
       `;
       els.productList.appendChild(li);
     });
@@ -313,18 +294,17 @@
   els.sheetClose.addEventListener("click", closeSheet);
   els.backdrop.addEventListener("click", closeSheet);
 
-  els.filterSoon.addEventListener("click", () => {
-    filterSoonOnly = !filterSoonOnly;
-    els.filterSoon.setAttribute("aria-pressed", String(filterSoonOnly));
-    els.filterSoon.textContent = filterSoonOnly ? "Tutti" : "Presto";
-    render();
-  });
-
   els.productName.addEventListener("input", () => {
     renderSuggestions(els.productName.value);
   });
 
   els.productName.addEventListener("focus", () => {
+    // Hide until typing; empty focus must not reopen recent names.
+    if (!els.productName.value.trim()) {
+      els.suggestions.hidden = true;
+      els.suggestions.innerHTML = "";
+      return;
+    }
     renderSuggestions(els.productName.value);
   });
 
