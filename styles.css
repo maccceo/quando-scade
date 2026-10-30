@@ -365,9 +365,10 @@ button {
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  overflow-x: clip;
 }
 
-.field > span {
+.field > span:not(.date-clip) {
   display: block;
   margin-bottom: 8px;
   font-size: 0.85rem;
@@ -375,7 +376,7 @@ button {
   color: var(--ink-soft);
 }
 
-.field input {
+.field input[type="text"] {
   display: block;
   width: 100%;
   max-width: 100%;
@@ -389,18 +390,68 @@ button {
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
-/* iOS Safari date controls have a large intrinsic width — force them to flex. */
-.field input[type="date"] {
+.field input[type="text"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+/*
+  iOS Safari date inputs ignore width and expand past the sheet.
+  Clip wrapper owns the visible chrome (same as Nome); native control is
+  stretched then clipped so it cannot widen the layout.
+*/
+.date-clip {
+  display: block;
+  position: relative;
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: var(--bg);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.date-clip:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.date-clip input[type="date"] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0 !important;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  outline: none;
+  font: inherit;
+  color: inherit;
+  line-height: 1.25;
   -webkit-appearance: none;
   appearance: none;
 }
 
-.field input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+.date-clip input[type="date"]::-webkit-date-and-time-value {
+  margin: 0;
+  text-align: left;
+}
+
+.date-clip input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .suggest[hidden] {
