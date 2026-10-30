@@ -181,12 +181,16 @@
     return !els.confirmOverlay.hidden;
   }
 
+  function hideSuggestions() {
+    els.suggestions.hidden = true;
+    els.suggestions.innerHTML = "";
+  }
+
   function openSheet({ mode, product } = { mode: "add" }) {
     els.sheet.hidden = false;
     els.backdrop.hidden = false;
     document.body.style.overflow = "hidden";
-    els.suggestions.hidden = true;
-    els.suggestions.innerHTML = "";
+    hideSuggestions();
 
     if (mode === "edit" && product) {
       els.sheetTitle.textContent = "Modifica";
@@ -204,7 +208,12 @@
       els.saveBtn.textContent = "Salva";
     }
 
-    window.setTimeout(() => els.productName.focus(), 50);
+    // Focus name but do not open suggestions (even when edit prefills the name).
+    window.setTimeout(() => {
+      hideSuggestions();
+      els.productName.focus({ preventScroll: true });
+      hideSuggestions();
+    }, 50);
   }
 
   function closeSheet() {
@@ -213,15 +222,14 @@
     document.body.style.overflow = "";
     els.form.reset();
     els.editId.value = "";
-    els.suggestions.hidden = true;
+    hideSuggestions();
   }
 
   function renderSuggestions(query) {
     const q = query.trim().toLowerCase();
-    // Only show after the user has typed something — never on empty focus/open.
+    // Only after the user typed a non-empty query with saved-name matches.
     if (!q) {
-      els.suggestions.hidden = true;
-      els.suggestions.innerHTML = "";
+      hideSuggestions();
       return;
     }
 
@@ -230,8 +238,7 @@
       .slice(0, 8);
 
     if (!matches.length) {
-      els.suggestions.hidden = true;
-      els.suggestions.innerHTML = "";
+      hideSuggestions();
       return;
     }
 
@@ -435,31 +442,26 @@
   els.sheetClose.addEventListener("click", closeSheet);
   els.backdrop.addEventListener("click", closeSheet);
 
+  // Suggestions only on typing — never on focus/open (edit prefills would otherwise match).
   els.productName.addEventListener("input", () => {
     renderSuggestions(els.productName.value);
   });
 
   els.productName.addEventListener("focus", () => {
-    // Hide until typing; empty focus must not reopen recent names.
-    if (!els.productName.value.trim()) {
-      els.suggestions.hidden = true;
-      els.suggestions.innerHTML = "";
-      return;
-    }
-    renderSuggestions(els.productName.value);
+    hideSuggestions();
   });
 
   els.suggestions.addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-name]");
     if (!btn) return;
     els.productName.value = btn.getAttribute("data-name") || "";
-    els.suggestions.hidden = true;
+    hideSuggestions();
     els.productExpiry.focus();
   });
 
   document.addEventListener("click", (e) => {
     if (!els.suggestions.hidden && !els.productName.contains(e.target) && !els.suggestions.contains(e.target)) {
-      els.suggestions.hidden = true;
+      hideSuggestions();
     }
   });
 

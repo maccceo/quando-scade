@@ -304,14 +304,24 @@ button {
   transform: translateX(-50%);
   bottom: 0;
   width: min(100%, 480px);
+  max-width: 100%;
   max-height: min(92dvh, 640px);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--bg-elev);
   border-radius: 24px 24px 0 0;
   padding: 10px 20px calc(20px + var(--safe-bottom));
   z-index: 40;
   box-shadow: var(--shadow);
   animation: slideUp 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  box-sizing: border-box;
+}
+
+#productForm {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .sheet-handle {
@@ -346,9 +356,15 @@ button {
 }
 
 .field {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   margin-bottom: 16px;
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .field > span {
@@ -360,7 +376,11 @@ button {
 }
 
 .field input {
+  display: block;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 14px 16px;
   border-radius: 14px;
   border: 1.5px solid var(--line);
@@ -369,9 +389,22 @@ button {
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
+/* iOS Safari date controls have a large intrinsic width — force them to flex. */
+.field input[type="date"] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 .field input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.suggest[hidden] {
+  display: none !important;
 }
 
 .suggest {
