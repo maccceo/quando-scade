@@ -370,7 +370,13 @@
       if (Math.abs(dx) < SWIPE_AXIS_LOCK && Math.abs(dy) < SWIPE_AXIS_LOCK) return;
       if (Math.abs(dy) > Math.abs(dx)) {
         // Vertical scroll wins — abandon swipe without fighting the page.
-        resetRowTransform(swipe.li, swipe.row);
+        const abandoned = swipe;
+        resetRowTransform(abandoned.li, abandoned.row);
+        try {
+          abandoned.li.releasePointerCapture(abandoned.pointerId);
+        } catch {
+          /* ignore */
+        }
         swipe = null;
         return;
       }
