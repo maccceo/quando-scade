@@ -79,10 +79,10 @@ button {
 
 .brand {
   margin: 0;
-  font-size: clamp(1.85rem, 6vw, 2.15rem);
+  font-size: clamp(1.55rem, 5.4vw, 1.95rem);
   font-weight: 700;
   letter-spacing: -0.03em;
-  line-height: 1.05;
+  line-height: 1.1;
 }
 
 .tagline {
@@ -181,24 +181,26 @@ button {
 .item-actions {
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 2px;
   flex-shrink: 0;
 }
 
 .item-actions .icon-action {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 8px;
   display: grid;
   place-items: center;
-  color: color-mix(in srgb, var(--ink-soft) 72%, transparent);
+  color: color-mix(in srgb, var(--ink-soft) 78%, transparent);
   background: transparent;
   transition: background 140ms ease, color 140ms ease;
 }
 
 .item-actions .icon-action svg {
-  width: 15px;
-  height: 15px;
+  width: 22px;
+  height: 22px;
+  display: block;
 }
 
 .item-actions .icon-action:active {
@@ -207,7 +209,7 @@ button {
 }
 
 .item-actions .icon-action.danger {
-  color: color-mix(in srgb, var(--danger) 70%, transparent);
+  color: color-mix(in srgb, var(--danger) 75%, transparent);
 }
 
 .item-actions .icon-action.danger:active {

@@ -1,6 +1,6 @@
 {
-  "name": "Scadenze",
-  "short_name": "Scadenze",
+  "name": "Quando scade?",
+  "short_name": "Quando scade?",
   "description": "Traccia i prodotti alimentari e le date di scadenza.",
   "start_url": "./index.html",
   "scope": "./",
