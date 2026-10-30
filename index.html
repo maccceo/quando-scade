@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f7f6f2" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Scadenze" />
+  <meta name="description" content="Tieni d'occhio la scadenza dei prodotti alimentari." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>Scadenze</title>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand-block">
+        <p class="brand">Scadenze</p>
+        <p class="tagline" id="subtitle">I tuoi prodotti</p>
+      </div>
+      <button type="button" class="filter-chip" id="filterSoon" aria-pressed="false" title="Mostra solo prossimi alla scadenza">
+        Presto
+      </button>
+    </header>
+
+    <main class="content" id="main">
+      <section class="soon-banner" id="soonBanner" hidden>
+        <span class="soon-dot" aria-hidden="true"></span>
+        <p id="soonText">Nessun prodotto in scadenza a breve</p>
+      </section>
+
+      <ul class="product-list" id="productList" aria-live="polite"></ul>
+
+      <div class="empty" id="emptyState" hidden>
+        <div class="empty-mark" aria-hidden="true"></div>
+        <h2>Niente in frigo (ancora)</h2>
+        <p>Aggiungi un prodotto e la sua data di scadenza.</p>
+      </div>
+    </main>
+
+    <button type="button" class="fab" id="fabAdd" aria-label="Aggiungi prodotto">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <nav class="bottom-nav" aria-label="Navigazione">
+      <button type="button" class="nav-btn active" data-view="home" id="navHome">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 7.5h16M4 12h16M4 16.5h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>Lista</span>
+      </button>
+      <button type="button" class="nav-btn" data-view="add" id="navAdd">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>Aggiungi</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Add / Edit sheet -->
+  <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
+  <aside class="sheet" id="formSheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <header class="sheet-head">
+      <h2 id="sheetTitle">Nuovo prodotto</h2>
+      <button type="button" class="icon-btn" id="sheetClose" aria-label="Chiudi">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </header>
+    <form id="productForm" autocomplete="off" novalidate>
+      <input type="hidden" id="editId" value="" />
+      <label class="field">
+        <span>Nome</span>
+        <input type="text" id="productName" name="name" required maxlength="80" placeholder="es. Yogurt greco" enterkeyhint="next" />
+        <ul class="suggest" id="suggestions" role="listbox" hidden></ul>
+      </label>
+      <label class="field">
+        <span>Scadenza</span>
+        <input type="date" id="productExpiry" name="expiry" required />
+      </label>
+      <div class="sheet-actions">
+        <button type="submit" class="btn primary" id="saveBtn">Salva</button>
+        <button type="button" class="btn danger ghost" id="deleteBtn" hidden>Elimina</button>
+      </div>
+    </form>
+  </aside>
+
+  <!-- Confirm delete -->
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
