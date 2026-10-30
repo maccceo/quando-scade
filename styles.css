@@ -17,7 +17,7 @@
   --radius: 18px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --nav-h: 64px;
+  --fab-clearance: 76px;
   --font: "Outfit", system-ui, sans-serif;
 }
 
@@ -64,14 +64,14 @@ button {
   padding:
     calc(12px + var(--safe-top))
     16px
-    calc(var(--nav-h) + 28px + var(--safe-bottom));
+    calc(var(--fab-clearance) + var(--safe-bottom));
   position: relative;
 }
 
 .topbar {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   margin-bottom: 18px;
   animation: rise 420ms ease both;
@@ -103,10 +103,11 @@ button {
 
 .product-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  /* icons | name (fills) | expiry — 1fr on name keeps title left-aligned */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 4px 8px;
-  padding: 10px 2px;
+  gap: 2px 6px;
+  padding: 8px 0;
   border-bottom: 1px solid var(--line);
   animation: rise 500ms ease both;
   transition: background 140ms ease;
@@ -126,8 +127,10 @@ button {
 
 .product-main {
   min-width: 0;
+  width: 100%;
   text-align: left;
-  padding: 0;
+  justify-self: stretch;
+  padding: 2px 0;
 }
 
 .product-name {
@@ -135,6 +138,7 @@ button {
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: -0.01em;
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -145,6 +149,7 @@ button {
   font-size: 0.8rem;
   color: var(--ink-soft);
   font-weight: 500;
+  text-align: left;
 }
 
 .expiry-pill {
@@ -181,21 +186,31 @@ button {
 }
 
 .item-actions .icon-action {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   display: grid;
   place-items: center;
-  color: var(--ink-soft);
+  color: color-mix(in srgb, var(--ink-soft) 72%, transparent);
   background: transparent;
   transition: background 140ms ease, color 140ms ease;
 }
 
+.item-actions .icon-action svg {
+  width: 15px;
+  height: 15px;
+}
+
 .item-actions .icon-action:active {
   background: rgba(255, 255, 255, 0.75);
+  color: var(--ink-soft);
 }
 
 .item-actions .icon-action.danger {
+  color: color-mix(in srgb, var(--danger) 70%, transparent);
+}
+
+.item-actions .icon-action.danger:active {
   color: var(--danger);
 }
 
@@ -245,7 +260,7 @@ button {
 .fab {
   position: fixed;
   right: max(16px, calc(50% - 240px + 16px));
-  bottom: calc(var(--nav-h) + 14px + var(--safe-bottom));
+  bottom: calc(16px + var(--safe-bottom));
   width: 58px;
   height: 58px;
   border-radius: 18px;
@@ -260,42 +275,6 @@ button {
 
 .fab:active {
   transform: scale(0.96);
-}
-
-.bottom-nav {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 0;
-  width: min(100%, 480px);
-  height: calc(var(--nav-h) + var(--safe-bottom));
-  padding: 8px 20px var(--safe-bottom);
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  background: color-mix(in srgb, var(--bg-elev) 86%, transparent);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-top: 1px solid var(--line);
-  z-index: 15;
-}
-
-.nav-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  color: var(--ink-soft);
-  font-size: 0.72rem;
-  font-weight: 600;
-  border-radius: 14px;
-  padding: 6px;
-}
-
-.nav-btn.active {
-  color: var(--accent);
-  background: var(--accent-soft);
 }
 
 .sheet-backdrop {
@@ -447,7 +426,7 @@ button {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(var(--nav-h) + 80px + var(--safe-bottom));
+  bottom: calc(var(--fab-clearance) + 12px + var(--safe-bottom));
   max-width: min(90%, 360px);
   padding: 12px 16px;
   border-radius: 14px;
