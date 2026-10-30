@@ -6,6 +6,10 @@
   /** Inclusive window: today through +4 days counts as soon-to-expire. */
   const SOON_DAYS = 4;
 
+  const SWIPE_AXIS_LOCK = 10;
+  const SWIPE_REVEAL_MAX = 88;
+  const SWIPE_ACTION = 72;
+
   /** @typedef {{ id: string, name: string, expiry: string }} Product */
 
   const $ = (id) => document.getElementById(id);
@@ -27,14 +31,28 @@
     saveBtn: $("saveBtn"),
     deleteBtn: $("deleteBtn"),
     toast: $("toast"),
+    confirmBackdrop: $("confirmBackdrop"),
+    confirmDialog: $("confirmDialog"),
+    confirmMessage: $("confirmMessage"),
+    confirmYes: $("confirmYes"),
+    confirmNo: $("confirmNo"),
   };
 
   let toastTimer = 0;
+  /** @type {null | ((ok: boolean) => void)} */
+  let confirmResolver = null;
 
-  const ICON_EDIT =
-    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.12 2.12 0 0 0-3-3L5 17v3zM13.5 6.5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const ICON_DELETE =
-    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 8h14M10 11v6M14 11v6M9 8V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M7 8l1 12a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  /** @type {{
+    li: HTMLElement,
+    row: HTMLElement,
+    id: string,
+    startX: number,
+    startY: number,
+    dx: number,
+    axis: "undecided" | "h" | "v",
+    pointerId: number,
+  } | null} */
+  let swipe = null;
 
   function loadProducts() {
     try {
@@ -144,6 +162,23 @@
     }, 2200);
   }
 
+  function askConfirm(message) {
+    return new Promise((resolve) => {
+      confirmResolver = resolve;
+      els.confirmMessage.textContent = message;
+      els.confirmBackdrop.hidden = false;
+      els.confirmDialog.hidden = false;
+    });
+  }
+
+  function closeConfirm(ok) {
+    els.confirmBackdrop.hidden = true;
+    els.confirmDialog.hidden = true;
+    const resolve = confirmResolver;
+    confirmResolver = null;
+    if (resolve) resolve(ok);
+  }
+
   function openSheet({ mode, product } = { mode: "add" }) {
     els.sheet.hidden = false;
     els.backdrop.hidden = false;
@@ -219,6 +254,28 @@
     return escapeHtml(s).replace(/'/g, "&#39;");
   }
 
+  function clamp(n, min, max) {
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function resetRowTransform(li, row) {
+    li.classList.remove("dragging", "swiping-edit", "swiping-delete");
+    row.style.transform = "";
+  }
+
+  async function confirmDelete(id) {
+    const ok = await askConfirm("Sei sicuro di voler eliminare l’elemento?");
+    if (!ok) return;
+    deleteProduct(id);
+    render();
+    showToast("Prodotto eliminato");
+  }
+
+  function openEditById(id) {
+    const p = loadProducts().find((x) => x.id === id);
+    if (p) openSheet({ mode: "edit", product: p });
+  }
+
   function render() {
     const list = sortedProducts(loadProducts());
 
@@ -236,21 +293,22 @@
       const days = daysUntil(p.expiry);
       const li = document.createElement("li");
       li.className = "product-item";
+      li.dataset.id = p.id;
       if (days < 0) li.classList.add("expired");
       else if (days <= SOON_DAYS) li.classList.add("urgent");
       li.style.animationDelay = `${Math.min(i, 12) * 28}ms`;
 
       const pc = pillClass(days);
       li.innerHTML = `
-        <div class="item-actions">
-          <button type="button" class="icon-action" data-edit="${p.id}" aria-label="Modifica">${ICON_EDIT}</button>
-          <button type="button" class="icon-action danger" data-del="${p.id}" aria-label="Elimina">${ICON_DELETE}</button>
+        <div class="swipe-bg edit" aria-hidden="true">Modifica</div>
+        <div class="swipe-bg delete" aria-hidden="true">Elimina</div>
+        <div class="product-row">
+          <div class="product-main">
+            <p class="product-name">${escapeHtml(p.name)}</p>
+            <p class="product-meta">${urgencyLabel(days)}</p>
+          </div>
+          <span class="expiry-pill ${pc}">${formatExpiryShort(p.expiry)}</span>
         </div>
-        <button type="button" class="product-main" data-edit="${p.id}">
-          <p class="product-name">${escapeHtml(p.name)}</p>
-          <p class="product-meta">${urgencyLabel(days)}</p>
-        </button>
-        <span class="expiry-pill ${pc}">${formatExpiryShort(p.expiry)}</span>
       `;
       els.productList.appendChild(li);
     });
@@ -273,6 +331,95 @@
   function deleteProduct(id) {
     const products = loadProducts().filter((p) => p.id !== id);
     saveProducts(products);
+  }
+
+  function onPointerDown(e) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const li = e.target.closest(".product-item");
+    if (!li || !els.productList.contains(li)) return;
+    if (!els.sheet.hidden || !els.confirmDialog.hidden) return;
+
+    const row = li.querySelector(".product-row");
+    if (!row) return;
+
+    swipe = {
+      li,
+      row,
+      id: li.dataset.id || "",
+      startX: e.clientX,
+      startY: e.clientY,
+      dx: 0,
+      axis: "undecided",
+      pointerId: e.pointerId,
+    };
+    li.classList.add("dragging");
+    try {
+      li.setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function onPointerMove(e) {
+    if (!swipe || e.pointerId !== swipe.pointerId) return;
+
+    const dx = e.clientX - swipe.startX;
+    const dy = e.clientY - swipe.startY;
+
+    if (swipe.axis === "undecided") {
+      if (Math.abs(dx) < SWIPE_AXIS_LOCK && Math.abs(dy) < SWIPE_AXIS_LOCK) return;
+      if (Math.abs(dy) > Math.abs(dx)) {
+        // Vertical scroll wins — abandon swipe without fighting the page.
+        resetRowTransform(swipe.li, swipe.row);
+        swipe = null;
+        return;
+      }
+      swipe.axis = "h";
+    }
+
+    if (swipe.axis !== "h") return;
+
+    e.preventDefault();
+    swipe.dx = clamp(dx, -SWIPE_REVEAL_MAX, SWIPE_REVEAL_MAX);
+    swipe.row.style.transform = `translate3d(${swipe.dx}px, 0, 0)`;
+    swipe.li.classList.toggle("swiping-edit", swipe.dx > 12);
+    swipe.li.classList.toggle("swiping-delete", swipe.dx < -12);
+  }
+
+  function onPointerUp(e) {
+    if (!swipe || e.pointerId !== swipe.pointerId) return;
+
+    const { li, row, id, dx, axis } = swipe;
+    swipe = null;
+
+    if (axis !== "h") {
+      resetRowTransform(li, row);
+      return;
+    }
+
+    li.classList.remove("dragging");
+
+    if (dx >= SWIPE_ACTION) {
+      row.style.transform = "";
+      li.classList.remove("swiping-edit", "swiping-delete");
+      openEditById(id);
+      return;
+    }
+
+    if (dx <= -SWIPE_ACTION) {
+      row.style.transform = "";
+      li.classList.remove("swiping-edit", "swiping-delete");
+      confirmDelete(id);
+      return;
+    }
+
+    resetRowTransform(li, row);
+  }
+
+  function onPointerCancel(e) {
+    if (!swipe || e.pointerId !== swipe.pointerId) return;
+    resetRowTransform(swipe.li, swipe.row);
+    swipe = null;
   }
 
   // Events
@@ -323,39 +470,33 @@
     showToast(id ? "Prodotto aggiornato" : "Prodotto salvato");
   });
 
-  els.deleteBtn.addEventListener("click", () => {
+  els.deleteBtn.addEventListener("click", async () => {
     const id = els.editId.value;
     if (!id) return;
-    if (!confirm("Eliminare questo prodotto?")) return;
+    const ok = await askConfirm("Sei sicuro di voler eliminare l’elemento?");
+    if (!ok) return;
     deleteProduct(id);
     closeSheet();
     render();
     showToast("Prodotto eliminato");
   });
 
-  els.productList.addEventListener("click", (e) => {
-    const del = e.target.closest("[data-del]");
-    if (del) {
-      const id = del.getAttribute("data-del");
-      const products = loadProducts();
-      const p = products.find((x) => x.id === id);
-      const label = p ? `"${p.name}"` : "questo prodotto";
-      if (!confirm(`Eliminare ${label}?`)) return;
-      deleteProduct(id);
-      render();
-      showToast("Prodotto eliminato");
-      return;
-    }
-    const edit = e.target.closest("[data-edit]");
-    if (edit) {
-      const id = edit.getAttribute("data-edit");
-      const p = loadProducts().find((x) => x.id === id);
-      if (p) openSheet({ mode: "edit", product: p });
-    }
-  });
+  els.confirmYes.addEventListener("click", () => closeConfirm(true));
+  els.confirmNo.addEventListener("click", () => closeConfirm(false));
+  els.confirmBackdrop.addEventListener("click", () => closeConfirm(false));
+
+  els.productList.addEventListener("pointerdown", onPointerDown);
+  els.productList.addEventListener("pointermove", onPointerMove, { passive: false });
+  els.productList.addEventListener("pointerup", onPointerUp);
+  els.productList.addEventListener("pointercancel", onPointerCancel);
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !els.sheet.hidden) closeSheet();
+    if (e.key !== "Escape") return;
+    if (!els.confirmDialog.hidden) {
+      closeConfirm(false);
+      return;
+    }
+    if (!els.sheet.hidden) closeSheet();
   });
 
   // SW registration (needs http/https — skip file://)

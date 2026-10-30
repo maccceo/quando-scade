@@ -73,7 +73,15 @@
     </form>
   </aside>
 
-  <!-- Confirm delete -->
+  <div class="confirm-backdrop" id="confirmBackdrop" hidden></div>
+  <div class="confirm-dialog" id="confirmDialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmMessage" hidden>
+    <p id="confirmMessage">Sei sicuro di voler eliminare l’elemento?</p>
+    <div class="confirm-actions">
+      <button type="button" class="btn ghost" id="confirmNo">No</button>
+      <button type="button" class="btn danger" id="confirmYes">Sì</button>
+    </div>
+  </div>
+
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="app.js" defer></script>
