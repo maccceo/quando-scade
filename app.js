@@ -86,6 +86,15 @@
     return new Date(n.getFullYear(), n.getMonth(), n.getDate());
   }
 
+  /** YYYY-MM-DD for <input type="date"> — defaults picker year to current calendar year. */
+  function todayISO() {
+    const t = todayLocal();
+    const y = t.getFullYear();
+    const m = String(t.getMonth() + 1).padStart(2, "0");
+    const d = String(t.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
   function daysUntil(iso) {
     const exp = parseISODate(iso);
     const t = todayLocal();
@@ -146,14 +155,14 @@
       els.sheetTitle.textContent = "Modifica";
       els.editId.value = product.id;
       els.productName.value = product.name;
-      els.productExpiry.value = product.expiry;
+      els.productExpiry.value = product.expiry || todayISO();
       els.deleteBtn.hidden = false;
       els.saveBtn.textContent = "Aggiorna";
     } else {
       els.sheetTitle.textContent = "Nuovo prodotto";
       els.editId.value = "";
       els.productName.value = "";
-      els.productExpiry.value = "";
+      els.productExpiry.value = todayISO();
       els.deleteBtn.hidden = true;
       els.saveBtn.textContent = "Salva";
     }
