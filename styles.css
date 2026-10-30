@@ -122,30 +122,35 @@ button {
 
 .swipe-bg {
   position: absolute;
-  inset: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 76px;
   display: flex;
   align-items: center;
-  padding: 0 18px;
-  font-size: 0.78rem;
+  justify-content: center;
+  border-radius: 12px;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   pointer-events: none;
   opacity: 0;
   transition: opacity 120ms ease;
+  z-index: 0;
 }
 
 .swipe-bg.edit {
-  justify-content: flex-start;
+  left: 4px;
   background: var(--accent-soft);
   color: var(--ok);
 }
 
 .swipe-bg.delete {
-  justify-content: flex-end;
+  right: 4px;
   background: var(--danger-soft);
   color: var(--danger);
 }
 
+/* Gap between the two action panels (page bg shows through the middle). */
 .product-item.swiping-edit .swipe-bg.edit,
 .product-item.swiping-delete .swipe-bg.delete {
   opacity: 1;
@@ -430,26 +435,29 @@ button {
   border: 1.5px solid color-mix(in srgb, var(--danger) 25%, var(--line));
 }
 
-.confirm-backdrop {
+.confirm-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(26, 31, 28, 0.35);
-  z-index: 55;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(24px, env(safe-area-inset-top, 0px)) 20px max(24px, env(safe-area-inset-bottom, 0px));
+  background: rgba(26, 31, 28, 0.4);
   animation: fade 160ms ease both;
+  /* Isolate from any ancestor transforms (sheet/swipe). */
+  transform: none;
 }
 
 .confirm-dialog {
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: min(90%, 320px);
+  position: relative;
+  width: min(100%, 320px);
+  margin: 0;
   padding: 22px 20px 16px;
   border-radius: 18px;
   background: var(--bg-elev);
   box-shadow: var(--shadow);
-  z-index: 60;
-  animation: rise 200ms ease both;
+  animation: confirmPop 200ms ease both;
 }
 
 .confirm-dialog p {
@@ -474,6 +482,17 @@ button {
 .confirm-actions .btn.ghost {
   color: var(--ink-soft);
   border: 1.5px solid var(--line);
+}
+
+@keyframes confirmPop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .toast {

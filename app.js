@@ -31,7 +31,7 @@
     saveBtn: $("saveBtn"),
     deleteBtn: $("deleteBtn"),
     toast: $("toast"),
-    confirmBackdrop: $("confirmBackdrop"),
+    confirmOverlay: $("confirmOverlay"),
     confirmDialog: $("confirmDialog"),
     confirmMessage: $("confirmMessage"),
     confirmYes: $("confirmYes"),
@@ -166,17 +166,19 @@
     return new Promise((resolve) => {
       confirmResolver = resolve;
       els.confirmMessage.textContent = message;
-      els.confirmBackdrop.hidden = false;
-      els.confirmDialog.hidden = false;
+      els.confirmOverlay.hidden = false;
     });
   }
 
   function closeConfirm(ok) {
-    els.confirmBackdrop.hidden = true;
-    els.confirmDialog.hidden = true;
+    els.confirmOverlay.hidden = true;
     const resolve = confirmResolver;
     confirmResolver = null;
     if (resolve) resolve(ok);
+  }
+
+  function isConfirmOpen() {
+    return !els.confirmOverlay.hidden;
   }
 
   function openSheet({ mode, product } = { mode: "add" }) {
@@ -337,7 +339,7 @@
     if (e.pointerType === "mouse" && e.button !== 0) return;
     const li = e.target.closest(".product-item");
     if (!li || !els.productList.contains(li)) return;
-    if (!els.sheet.hidden || !els.confirmDialog.hidden) return;
+    if (!els.sheet.hidden || isConfirmOpen()) return;
 
     const row = li.querySelector(".product-row");
     if (!row) return;
@@ -489,7 +491,9 @@
 
   els.confirmYes.addEventListener("click", () => closeConfirm(true));
   els.confirmNo.addEventListener("click", () => closeConfirm(false));
-  els.confirmBackdrop.addEventListener("click", () => closeConfirm(false));
+  els.confirmOverlay.addEventListener("click", (e) => {
+    if (e.target === els.confirmOverlay) closeConfirm(false);
+  });
 
   els.productList.addEventListener("pointerdown", onPointerDown);
   els.productList.addEventListener("pointermove", onPointerMove, { passive: false });
@@ -498,7 +502,7 @@
 
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    if (!els.confirmDialog.hidden) {
+    if (isConfirmOpen()) {
       closeConfirm(false);
       return;
     }
