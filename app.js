@@ -114,14 +114,20 @@
     return { id, name, expiry, category, longShelf };
   }
 
+  function needsProductMigration(raw) {
+    if (!raw || typeof raw !== "object") return true;
+    return !("category" in raw) || !("longShelf" in raw) || (raw.longShelf && raw.expiry);
+  }
+
   function loadProducts() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       const list = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(list)) return [];
+      const dirty = list.some(needsProductMigration);
       const normalized = list.map(normalizeProduct).filter(Boolean);
-      // Persist migration so new fields stick without dropping old entries.
-      saveProducts(normalized);
+      // Persist only when old shape needs category/longShelf fields.
+      if (dirty) saveProducts(normalized);
       return normalized;
     } catch {
       return [];
