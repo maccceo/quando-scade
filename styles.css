@@ -208,12 +208,8 @@ button {
   -webkit-user-select: none;
 }
 
-.product-item.urgent {
-  border-bottom-color: color-mix(in srgb, var(--warn) 25%, var(--line));
-}
-
-.product-item.expired {
-  border-bottom-color: color-mix(in srgb, var(--danger) 30%, var(--line));
+.cat-section .product-list .product-item:last-child {
+  border-bottom: 0;
 }
 
 .swipe-bg {
@@ -259,8 +255,8 @@ button {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  padding: 14px 2px;
-  background: var(--bg);
+  padding: 18px 2px;
+  background: transparent;
   will-change: transform;
   transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -324,9 +320,9 @@ button {
 }
 
 .expiry-pill.shelf {
-  background: color-mix(in srgb, var(--line) 65%, #fff);
-  color: var(--ink-soft);
-  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--ok);
+  font-weight: 700;
   text-transform: none;
 }
 
@@ -504,7 +500,9 @@ button {
   stretched then clipped so it cannot widen the layout.
 */
 .date-clip {
-  display: block;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   position: relative;
   width: 100%;
   max-width: 100%;
@@ -529,7 +527,7 @@ button {
   min-width: 0 !important;
   box-sizing: border-box;
   margin: 0;
-  padding: 14px 16px;
+  padding: 14px 8px 14px 16px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -549,12 +547,35 @@ button {
 .date-clip input[type="date"]::-webkit-calendar-picker-indicator {
   position: absolute;
   inset: 0;
+  right: 44px;
   width: auto;
   height: auto;
   margin: 0;
   padding: 0;
   opacity: 0;
   cursor: pointer;
+}
+
+.date-clear {
+  position: relative;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  margin-right: 4px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+
+.date-clear[hidden] {
+  display: none !important;
+}
+
+.date-clear:active {
+  background: color-mix(in srgb, var(--line) 55%, transparent);
+  color: var(--ink);
 }
 
 .suggest[hidden] {
@@ -637,29 +658,6 @@ button {
   background: var(--accent-soft);
   border-color: transparent;
   color: var(--ok);
-}
-
-.check-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 16px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--ink);
-  cursor: pointer;
-  user-select: none;
-}
-
-.check-row input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
-  flex-shrink: 0;
-}
-
-#expiryField[hidden] {
-  display: none !important;
 }
 
 .sheet-actions {

@@ -7,7 +7,7 @@
   /** Inclusive window: today through +4 days counts as soon-to-expire. */
   const SOON_DAYS = 4;
 
-  const CATEGORIES = ["colazione", "primi", "secondi", "contorni", "snack"];
+  const CATEGORIES = ["colazione", "primi", "secondi", "contorni", "snack", "dolci"];
   const CATEGORY_SET = new Set(CATEGORIES);
 
   const SWIPE_AXIS_LOCK = 10;
@@ -44,7 +44,7 @@
     productName: $("productName"),
     productExpiry: $("productExpiry"),
     expiryField: $("expiryField"),
-    longShelf: $("longShelf"),
+    clearExpiry: $("clearExpiry"),
     categoryChips: $("categoryChips"),
     suggestions: $("suggestions"),
     saveBtn: $("saveBtn"),
@@ -304,21 +304,13 @@
     });
   }
 
-  function setLongShelf(on) {
-    els.longShelf.checked = Boolean(on);
-    syncExpiryField();
+  function syncClearExpiryBtn() {
+    els.clearExpiry.hidden = !els.productExpiry.value;
   }
 
-  function syncExpiryField() {
-    const long = els.longShelf.checked;
-    els.expiryField.hidden = long;
-    els.productExpiry.required = !long;
-    els.productExpiry.disabled = long;
-    if (long) {
-      els.productExpiry.value = "";
-    } else if (!els.productExpiry.value) {
-      els.productExpiry.value = todayISO();
-    }
+  function clearExpiryDate() {
+    els.productExpiry.value = "";
+    syncClearExpiryBtn();
   }
 
   function openSheet({ mode, product } = { mode: "add" }) {
@@ -332,10 +324,8 @@
       els.editId.value = product.id;
       els.productName.value = product.name;
       setCategory(product.category);
-      setLongShelf(product.longShelf || !product.expiry);
-      if (!els.longShelf.checked) {
-        els.productExpiry.value = product.expiry || todayISO();
-      }
+      els.productExpiry.value =
+        product.longShelf || !product.expiry ? "" : product.expiry || todayISO();
       els.deleteBtn.hidden = false;
       els.saveBtn.textContent = "Aggiorna";
     } else {
@@ -343,11 +333,11 @@
       els.editId.value = "";
       els.productName.value = "";
       setCategory(null);
-      setLongShelf(false);
       els.productExpiry.value = todayISO();
       els.deleteBtn.hidden = true;
       els.saveBtn.textContent = "Salva";
     }
+    syncClearExpiryBtn();
 
     window.setTimeout(() => {
       hideSuggestions();
@@ -363,7 +353,7 @@
     els.form.reset();
     els.editId.value = "";
     setCategory(null);
-    setLongShelf(false);
+    syncClearExpiryBtn();
     hideSuggestions();
   }
 
@@ -431,10 +421,9 @@
     const days = daysUntil(p.expiry);
     const pc = pillClass(days);
     const pillText = p.expiry ? formatExpiryShort(p.expiry) : "senza data";
-    const urgent = days != null && days < 0 ? "expired" : days != null && days <= SOON_DAYS ? "urgent" : "";
     const delay = `${Math.min(i, 12) * 28}ms`;
     return `
-      <li class="product-item ${urgent}" data-id="${escapeAttr(p.id)}" style="animation-delay:${delay}">
+      <li class="product-item" data-id="${escapeAttr(p.id)}" style="animation-delay:${delay}">
         <div class="swipe-bg edit" aria-hidden="true">Modifica</div>
         <div class="swipe-bg delete" aria-hidden="true">Elimina</div>
         <div class="product-row">
@@ -627,7 +616,13 @@
     setCategory(selectedCategory === cat ? null : cat);
   });
 
-  els.longShelf.addEventListener("change", syncExpiryField);
+  els.clearExpiry.addEventListener("click", (e) => {
+    e.preventDefault();
+    clearExpiryDate();
+  });
+
+  els.productExpiry.addEventListener("input", syncClearExpiryBtn);
+  els.productExpiry.addEventListener("change", syncClearExpiryBtn);
 
   els.productName.addEventListener("input", () => {
     renderSuggestions(els.productName.value);
@@ -644,7 +639,7 @@
     const cat = btn.getAttribute("data-category") || "";
     setCategory(cat || null);
     hideSuggestions();
-    if (!els.longShelf.checked) els.productExpiry.focus();
+    els.productExpiry.focus();
   });
 
   document.addEventListener("click", (e) => {
@@ -656,14 +651,10 @@
   els.form.addEventListener("submit", (e) => {
     e.preventDefault();
     const name = els.productName.value.trim();
-    const longShelf = els.longShelf.checked;
     const expiry = els.productExpiry.value;
+    const longShelf = !expiry;
     if (!name) {
       showToast("Inserisci il nome");
-      return;
-    }
-    if (!longShelf && !expiry) {
-      showToast("Inserisci nome e data");
       return;
     }
     const id = els.editId.value || null;
@@ -717,7 +708,7 @@
   els.confirmOverlay.hidden = true;
   confirmResolver = null;
   setCategory(null);
-  syncExpiryField();
+  syncClearExpiryBtn();
 
   render();
 })();

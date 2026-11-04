@@ -77,18 +77,19 @@
           <button type="button" class="chip" data-category="secondi" aria-pressed="false">secondi</button>
           <button type="button" class="chip" data-category="contorni" aria-pressed="false">contorni</button>
           <button type="button" class="chip" data-category="snack" aria-pressed="false">snack</button>
+          <button type="button" class="chip" data-category="dolci" aria-pressed="false">dolci</button>
         </div>
       </fieldset>
-
-      <label class="check-row" for="longShelf">
-        <input type="checkbox" id="longShelf" name="longShelf" />
-        <span>lunga conservazione</span>
-      </label>
 
       <label class="field" id="expiryField">
         <span>Scadenza</span>
         <span class="date-clip">
-          <input type="date" id="productExpiry" name="expiry" required />
+          <input type="date" id="productExpiry" name="expiry" />
+          <button type="button" class="date-clear" id="clearExpiry" aria-label="Rimuovi data" hidden>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+            </svg>
+          </button>
         </span>
       </label>
 
