@@ -106,15 +106,7 @@ button {
   color: var(--warn);
 }
 
-.soon-empty {
-  margin: 0;
-  padding: 14px 4px 8px;
-  color: var(--ink-soft);
-  font-size: 0.92rem;
-  font-weight: 500;
-}
-
-.soon-empty[hidden] {
+.soon-block[hidden] {
   display: none !important;
 }
 

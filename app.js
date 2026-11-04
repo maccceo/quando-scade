@@ -29,8 +29,8 @@
 
   const els = {
     main: $("main"),
+    soonBlock: $("soonBlock"),
     soonList: $("soonList"),
-    soonEmpty: $("soonEmpty"),
     catalog: $("catalog"),
     emptyState: $("emptyState"),
     subtitle: $("subtitle"),
@@ -454,9 +454,9 @@
 
     els.emptyState.hidden = all.length > 0;
 
-    fillList(els.soonList, soon);
-    els.soonEmpty.hidden = soon.length > 0;
-    els.soonList.hidden = soon.length === 0;
+    els.soonBlock.hidden = soon.length === 0;
+    if (soon.length) fillList(els.soonList, soon);
+    else els.soonList.innerHTML = "";
 
     const sections = [];
     for (const cat of CATEGORIES) {
