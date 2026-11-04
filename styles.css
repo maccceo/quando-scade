@@ -93,6 +93,98 @@ button {
   font-weight: 500;
 }
 
+.soon-block {
+  margin-bottom: 22px;
+  animation: rise 440ms ease both;
+}
+
+.section-title {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--warn);
+}
+
+.soon-empty {
+  margin: 0;
+  padding: 14px 4px 8px;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.soon-empty[hidden] {
+  display: none !important;
+}
+
+.catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cat-section {
+  border-radius: 14px;
+  background: color-mix(in srgb, #fff 55%, var(--bg));
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.cat-summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+}
+
+.cat-summary::-webkit-details-marker {
+  display: none;
+}
+
+.cat-summary::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--ink-soft);
+  border-bottom: 2px solid var(--ink-soft);
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+  flex-shrink: 0;
+}
+
+.cat-section[open] .cat-summary::after {
+  transform: rotate(-135deg);
+  margin-top: 4px;
+}
+
+.cat-title {
+  text-transform: lowercase;
+  letter-spacing: -0.01em;
+}
+
+.cat-count {
+  margin-left: auto;
+  margin-right: 10px;
+  min-width: 1.6rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--ok);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.cat-section .product-list {
+  padding: 0 10px 8px;
+}
+
 .product-list {
   list-style: none;
   margin: 0;
@@ -100,6 +192,10 @@ button {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.product-list[hidden] {
+  display: none !important;
 }
 
 .product-item {
@@ -225,6 +321,13 @@ button {
 .expiry-pill.expired {
   background: var(--danger-soft);
   color: var(--danger);
+}
+
+.expiry-pill.shelf {
+  background: color-mix(in srgb, var(--line) 65%, #fff);
+  color: var(--ink-soft);
+  font-weight: 600;
+  text-transform: none;
 }
 
 .empty {
@@ -483,10 +586,80 @@ button {
   font-weight: 500;
 }
 
+.suggest li button em {
+  font-style: normal;
+  font-weight: 500;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  margin-left: 6px;
+}
+
 .suggest li button:hover,
 .suggest li button:focus {
   background: var(--accent-soft);
   outline: none;
+}
+
+.category-field {
+  border: 0;
+  margin: 0 0 16px;
+  padding: 0;
+  min-width: 0;
+}
+
+.category-field legend {
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  padding: 0;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: var(--bg);
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.chip.active,
+.chip[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--ok);
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+}
+
+.check-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+#expiryField[hidden] {
+  display: none !important;
 }
 
 .sheet-actions {

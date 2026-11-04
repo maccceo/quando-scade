@@ -3,19 +3,35 @@
 
   const STORAGE_KEY = "scadenze.products.v1";
   const NAMES_KEY = "scadenze.names.v1";
+  const SUGGESTIONS_KEY = "scadenze.suggestions.v1";
   /** Inclusive window: today through +4 days counts as soon-to-expire. */
   const SOON_DAYS = 4;
+
+  const CATEGORIES = ["colazione", "primi", "secondi", "contorni", "snack"];
+  const CATEGORY_SET = new Set(CATEGORIES);
 
   const SWIPE_AXIS_LOCK = 10;
   const SWIPE_REVEAL_MAX = 88;
   const SWIPE_ACTION = 72;
 
-  /** @typedef {{ id: string, name: string, expiry: string }} Product */
+  /**
+   * @typedef {{
+   *   id: string,
+   *   name: string,
+   *   expiry: string | null,
+   *   category: string | null,
+   *   longShelf: boolean
+   * }} Product
+   * @typedef {{ name: string, category: string | null }} Suggestion
+   */
 
   const $ = (id) => document.getElementById(id);
 
   const els = {
-    productList: $("productList"),
+    main: $("main"),
+    soonList: $("soonList"),
+    soonEmpty: $("soonEmpty"),
+    catalog: $("catalog"),
     emptyState: $("emptyState"),
     subtitle: $("subtitle"),
     fabAdd: $("fabAdd"),
@@ -27,6 +43,9 @@
     editId: $("editId"),
     productName: $("productName"),
     productExpiry: $("productExpiry"),
+    expiryField: $("expiryField"),
+    longShelf: $("longShelf"),
+    categoryChips: $("categoryChips"),
     suggestions: $("suggestions"),
     saveBtn: $("saveBtn"),
     deleteBtn: $("deleteBtn"),
@@ -41,6 +60,8 @@
   let toastTimer = 0;
   /** @type {null | ((ok: boolean) => void)} */
   let confirmResolver = null;
+  /** @type {string | null} */
+  let selectedCategory = null;
 
   /** @type {{
     li: HTMLElement,
@@ -54,11 +75,54 @@
   } | null} */
   let swipe = null;
 
+  function normalizeCategory(raw) {
+    if (typeof raw !== "string") return null;
+    const c = raw.trim().toLowerCase();
+    return CATEGORY_SET.has(c) ? c : null;
+  }
+
+  /** In-place compatible migration: keep ids/names/expiry; add category/longShelf. */
+  function normalizeProduct(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const name = typeof raw.name === "string" ? raw.name.trim() : "";
+    if (!name) return null;
+
+    const id =
+      typeof raw.id === "string" && raw.id
+        ? raw.id
+        : uid();
+
+    let expiry = null;
+    if (typeof raw.expiry === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.expiry)) {
+      expiry = raw.expiry;
+    }
+
+    const category = normalizeCategory(raw.category);
+
+    let longShelf = Boolean(raw.longShelf);
+    if (raw.longShelf == null && expiry == null) {
+      // Old entries always had expiry; if somehow missing, treat as long shelf.
+      longShelf = true;
+    }
+    if (longShelf) expiry = null;
+    if (!longShelf && !expiry) {
+      // Keep required-date semantics for non-long-shelf items without a date.
+      longShelf = false;
+      expiry = null;
+    }
+
+    return { id, name, expiry, category, longShelf };
+  }
+
   function loadProducts() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       const list = raw ? JSON.parse(raw) : [];
-      return Array.isArray(list) ? list : [];
+      if (!Array.isArray(list)) return [];
+      const normalized = list.map(normalizeProduct).filter(Boolean);
+      // Persist migration so new fields stick without dropping old entries.
+      saveProducts(normalized);
+      return normalized;
     } catch {
       return [];
     }
@@ -68,24 +132,54 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
   }
 
-  function loadNames() {
+  function migrateSuggestionsFromLegacyNames() {
+    if (localStorage.getItem(SUGGESTIONS_KEY)) return;
     try {
       const raw = localStorage.getItem(NAMES_KEY);
       const list = raw ? JSON.parse(raw) : [];
-      return Array.isArray(list) ? list : [];
+      if (!Array.isArray(list)) return;
+      const mapped = list
+        .filter((n) => typeof n === "string" && n.trim())
+        .map((n) => ({ name: n.trim(), category: null }));
+      if (mapped.length) {
+        localStorage.setItem(SUGGESTIONS_KEY, JSON.stringify(mapped.slice(0, 200)));
+      } else {
+        localStorage.setItem(SUGGESTIONS_KEY, "[]");
+      }
+    } catch {
+      localStorage.setItem(SUGGESTIONS_KEY, "[]");
+    }
+  }
+
+  function loadSuggestions() {
+    migrateSuggestionsFromLegacyNames();
+    try {
+      const raw = localStorage.getItem(SUGGESTIONS_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(list)) return [];
+      return list
+        .map((s) => {
+          if (typeof s === "string") return { name: s.trim(), category: null };
+          if (!s || typeof s !== "object") return null;
+          const name = typeof s.name === "string" ? s.name.trim() : "";
+          if (!name) return null;
+          return { name, category: normalizeCategory(s.category) };
+        })
+        .filter(Boolean);
     } catch {
       return [];
     }
   }
 
-  function rememberName(name) {
+  function rememberSuggestion(name, category) {
     const n = name.trim();
     if (!n) return;
-    const names = loadNames();
+    const cat = normalizeCategory(category);
+    const list = loadSuggestions();
     const lower = n.toLowerCase();
-    const next = names.filter((x) => x.toLowerCase() !== lower);
-    next.unshift(n);
-    localStorage.setItem(NAMES_KEY, JSON.stringify(next.slice(0, 200)));
+    const next = list.filter((x) => x.name.toLowerCase() !== lower);
+    next.unshift({ name: n, category: cat });
+    localStorage.setItem(SUGGESTIONS_KEY, JSON.stringify(next.slice(0, 200)));
   }
 
   function uid() {
@@ -104,7 +198,6 @@
     return new Date(n.getFullYear(), n.getMonth(), n.getDate());
   }
 
-  /** YYYY-MM-DD for <input type="date"> — defaults picker year to current calendar year. */
   function todayISO() {
     const t = todayLocal();
     const y = t.getFullYear();
@@ -114,6 +207,7 @@
   }
 
   function daysUntil(iso) {
+    if (!iso) return null;
     const exp = parseISODate(iso);
     const t = todayLocal();
     return Math.round((exp - t) / 86400000);
@@ -126,28 +220,37 @@
       day: "numeric",
       month: "short",
     }).format(d);
-    // "mar 8 nov" style — strip trailing dots from Italian short weekday/month
     return formatted.replace(/\./g, "").toLowerCase();
   }
 
   function urgencyLabel(days) {
+    if (days == null) return "lunga conservazione";
     if (days < 0) return days === -1 ? "scaduto ieri" : `scaduto da ${-days} gg`;
     if (days === 0) return "scade oggi";
     if (days === 1) return "scade domani";
-    if (days <= SOON_DAYS) return `tra ${days} giorni`;
     return `tra ${days} giorni`;
   }
 
   function pillClass(days) {
+    if (days == null) return "shelf";
     if (days < 0) return "expired";
     if (days <= SOON_DAYS) return "soon";
     return "";
   }
 
-  function sortedProducts(list) {
+  function isSoon(p) {
+    if (p.longShelf || !p.expiry) return false;
+    const days = daysUntil(p.expiry);
+    return days != null && days <= SOON_DAYS;
+  }
+
+  function sortByExpiry(list) {
     return [...list].sort((a, b) => {
       const da = daysUntil(a.expiry);
       const db = daysUntil(b.expiry);
+      if (da == null && db == null) return a.name.localeCompare(b.name, "it");
+      if (da == null) return 1;
+      if (db == null) return -1;
       if (da !== db) return da - db;
       return a.name.localeCompare(b.name, "it");
     });
@@ -186,6 +289,32 @@
     els.suggestions.innerHTML = "";
   }
 
+  function setCategory(cat) {
+    selectedCategory = normalizeCategory(cat);
+    els.categoryChips.querySelectorAll(".chip").forEach((btn) => {
+      const on = btn.getAttribute("data-category") === selectedCategory;
+      btn.setAttribute("aria-pressed", String(on));
+      btn.classList.toggle("active", on);
+    });
+  }
+
+  function setLongShelf(on) {
+    els.longShelf.checked = Boolean(on);
+    syncExpiryField();
+  }
+
+  function syncExpiryField() {
+    const long = els.longShelf.checked;
+    els.expiryField.hidden = long;
+    els.productExpiry.required = !long;
+    els.productExpiry.disabled = long;
+    if (long) {
+      els.productExpiry.value = "";
+    } else if (!els.productExpiry.value) {
+      els.productExpiry.value = todayISO();
+    }
+  }
+
   function openSheet({ mode, product } = { mode: "add" }) {
     els.sheet.hidden = false;
     els.backdrop.hidden = false;
@@ -196,19 +325,24 @@
       els.sheetTitle.textContent = "Modifica";
       els.editId.value = product.id;
       els.productName.value = product.name;
-      els.productExpiry.value = product.expiry || todayISO();
+      setCategory(product.category);
+      setLongShelf(product.longShelf || !product.expiry);
+      if (!els.longShelf.checked) {
+        els.productExpiry.value = product.expiry || todayISO();
+      }
       els.deleteBtn.hidden = false;
       els.saveBtn.textContent = "Aggiorna";
     } else {
       els.sheetTitle.textContent = "Nuovo prodotto";
       els.editId.value = "";
       els.productName.value = "";
+      setCategory(null);
+      setLongShelf(false);
       els.productExpiry.value = todayISO();
       els.deleteBtn.hidden = true;
       els.saveBtn.textContent = "Salva";
     }
 
-    // Focus name but do not open suggestions (even when edit prefills the name).
     window.setTimeout(() => {
       hideSuggestions();
       els.productName.focus({ preventScroll: true });
@@ -222,19 +356,20 @@
     document.body.style.overflow = "";
     els.form.reset();
     els.editId.value = "";
+    setCategory(null);
+    setLongShelf(false);
     hideSuggestions();
   }
 
   function renderSuggestions(query) {
     const q = query.trim().toLowerCase();
-    // Only after the user typed a non-empty query with saved-name matches.
     if (!q) {
       hideSuggestions();
       return;
     }
 
-    const matches = loadNames()
-      .filter((n) => n.toLowerCase().includes(q))
+    const matches = loadSuggestions()
+      .filter((s) => s.name.toLowerCase().includes(q))
       .slice(0, 8);
 
     if (!matches.length) {
@@ -243,10 +378,11 @@
     }
 
     els.suggestions.innerHTML = matches
-      .map(
-        (n) =>
-          `<li role="option"><button type="button" data-name="${escapeAttr(n)}">${escapeHtml(n)}</button></li>`
-      )
+      .map((s) => {
+        const catAttr = s.category ? escapeAttr(s.category) : "";
+        const hint = s.category ? ` <em>${escapeHtml(s.category)}</em>` : "";
+        return `<li role="option"><button type="button" data-name="${escapeAttr(s.name)}" data-category="${catAttr}">${escapeHtml(s.name)}${hint}</button></li>`;
+      })
       .join("");
     els.suggestions.hidden = false;
   }
@@ -285,30 +421,14 @@
     if (p) openSheet({ mode: "edit", product: p });
   }
 
-  function render() {
-    const list = sortedProducts(loadProducts());
-
-    els.subtitle.textContent =
-      list.length === 0
-        ? "I tuoi prodotti"
-        : list.length === 1
-          ? "1 prodotto"
-          : `${list.length} prodotti`;
-
-    els.emptyState.hidden = list.length > 0;
-    els.productList.innerHTML = "";
-
-    list.forEach((p, i) => {
-      const days = daysUntil(p.expiry);
-      const li = document.createElement("li");
-      li.className = "product-item";
-      li.dataset.id = p.id;
-      if (days < 0) li.classList.add("expired");
-      else if (days <= SOON_DAYS) li.classList.add("urgent");
-      li.style.animationDelay = `${Math.min(i, 12) * 28}ms`;
-
-      const pc = pillClass(days);
-      li.innerHTML = `
+  function productItemHtml(p, i) {
+    const days = daysUntil(p.expiry);
+    const pc = pillClass(days);
+    const pillText = p.expiry ? formatExpiryShort(p.expiry) : "senza data";
+    const urgent = days != null && days < 0 ? "expired" : days != null && days <= SOON_DAYS ? "urgent" : "";
+    const delay = `${Math.min(i, 12) * 28}ms`;
+    return `
+      <li class="product-item ${urgent}" data-id="${escapeAttr(p.id)}" style="animation-delay:${delay}">
         <div class="swipe-bg edit" aria-hidden="true">Modifica</div>
         <div class="swipe-bg delete" aria-hidden="true">Elimina</div>
         <div class="product-row">
@@ -316,25 +436,76 @@
             <p class="product-name">${escapeHtml(p.name)}</p>
             <p class="product-meta">${urgencyLabel(days)}</p>
           </div>
-          <span class="expiry-pill ${pc}">${formatExpiryShort(p.expiry)}</span>
+          <span class="expiry-pill ${pc}">${escapeHtml(pillText)}</span>
         </div>
-      `;
-      els.productList.appendChild(li);
-    });
+      </li>
+    `;
   }
 
-  function upsertProduct(name, expiry, id) {
+  function fillList(ul, products) {
+    ul.innerHTML = products.map((p, i) => productItemHtml(p, i)).join("");
+  }
+
+  function render() {
+    const all = loadProducts();
+    const soon = sortByExpiry(all.filter(isSoon));
+
+    els.subtitle.textContent =
+      all.length === 0
+        ? "I tuoi prodotti"
+        : all.length === 1
+          ? "1 prodotto"
+          : `${all.length} prodotti`;
+
+    els.emptyState.hidden = all.length > 0;
+
+    fillList(els.soonList, soon);
+    els.soonEmpty.hidden = soon.length > 0;
+    els.soonList.hidden = soon.length === 0;
+
+    const sections = [];
+    for (const cat of CATEGORIES) {
+      const items = sortByExpiry(all.filter((p) => p.category === cat));
+      if (!items.length) continue;
+      sections.push({ key: cat, title: cat, items });
+    }
+    const other = sortByExpiry(all.filter((p) => !p.category));
+    if (other.length) {
+      sections.push({ key: "altro", title: "altro", items: other });
+    }
+
+    els.catalog.innerHTML = sections
+      .map(
+        (sec) => `
+      <details class="cat-section" data-cat="${escapeAttr(sec.key)}">
+        <summary class="cat-summary">
+          <span class="cat-title">${escapeHtml(sec.title)}</span>
+          <span class="cat-count">${sec.items.length}</span>
+        </summary>
+        <ul class="product-list">${sec.items.map((p, i) => productItemHtml(p, i)).join("")}</ul>
+      </details>`
+      )
+      .join("");
+  }
+
+  function upsertProduct({ name, expiry, category, longShelf, id }) {
     const products = loadProducts();
+    const payload = {
+      name,
+      expiry: longShelf ? null : expiry,
+      category: normalizeCategory(category),
+      longShelf: Boolean(longShelf),
+    };
     if (id) {
       const idx = products.findIndex((p) => p.id === id);
       if (idx >= 0) {
-        products[idx] = { ...products[idx], name, expiry };
+        products[idx] = { ...products[idx], ...payload };
       }
     } else {
-      products.push({ id: uid(), name, expiry });
+      products.push({ id: uid(), ...payload });
     }
     saveProducts(products);
-    rememberName(name);
+    rememberSuggestion(name, payload.category);
   }
 
   function deleteProduct(id) {
@@ -345,8 +516,10 @@
   function onPointerDown(e) {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     const li = e.target.closest(".product-item");
-    if (!li || !els.productList.contains(li)) return;
+    if (!li || !els.main.contains(li)) return;
     if (!els.sheet.hidden || isConfirmOpen()) return;
+    // Don't start swipe from the summary toggle.
+    if (e.target.closest("summary")) return;
 
     const row = li.querySelector(".product-row");
     if (!row) return;
@@ -378,7 +551,6 @@
     if (swipe.axis === "undecided") {
       if (Math.abs(dx) < SWIPE_AXIS_LOCK && Math.abs(dy) < SWIPE_AXIS_LOCK) return;
       if (Math.abs(dy) > Math.abs(dx)) {
-        // Vertical scroll wins — abandon swipe without fighting the page.
         const abandoned = swipe;
         resetRowTransform(abandoned.li, abandoned.row);
         try {
@@ -442,7 +614,15 @@
   els.sheetClose.addEventListener("click", closeSheet);
   els.backdrop.addEventListener("click", closeSheet);
 
-  // Suggestions only on typing — never on focus/open (edit prefills would otherwise match).
+  els.categoryChips.addEventListener("click", (e) => {
+    const btn = e.target.closest(".chip[data-category]");
+    if (!btn) return;
+    const cat = btn.getAttribute("data-category");
+    setCategory(selectedCategory === cat ? null : cat);
+  });
+
+  els.longShelf.addEventListener("change", syncExpiryField);
+
   els.productName.addEventListener("input", () => {
     renderSuggestions(els.productName.value);
   });
@@ -455,8 +635,10 @@
     const btn = e.target.closest("button[data-name]");
     if (!btn) return;
     els.productName.value = btn.getAttribute("data-name") || "";
+    const cat = btn.getAttribute("data-category") || "";
+    setCategory(cat || null);
     hideSuggestions();
-    els.productExpiry.focus();
+    if (!els.longShelf.checked) els.productExpiry.focus();
   });
 
   document.addEventListener("click", (e) => {
@@ -468,13 +650,24 @@
   els.form.addEventListener("submit", (e) => {
     e.preventDefault();
     const name = els.productName.value.trim();
+    const longShelf = els.longShelf.checked;
     const expiry = els.productExpiry.value;
-    if (!name || !expiry) {
+    if (!name) {
+      showToast("Inserisci il nome");
+      return;
+    }
+    if (!longShelf && !expiry) {
       showToast("Inserisci nome e data");
       return;
     }
     const id = els.editId.value || null;
-    upsertProduct(name, expiry, id);
+    upsertProduct({
+      name,
+      expiry: longShelf ? null : expiry,
+      category: selectedCategory,
+      longShelf,
+      id,
+    });
     closeSheet();
     render();
     showToast(id ? "Prodotto aggiornato" : "Prodotto salvato");
@@ -497,10 +690,10 @@
     if (e.target === els.confirmOverlay) closeConfirm(false);
   });
 
-  els.productList.addEventListener("pointerdown", onPointerDown);
-  els.productList.addEventListener("pointermove", onPointerMove, { passive: false });
-  els.productList.addEventListener("pointerup", onPointerUp);
-  els.productList.addEventListener("pointercancel", onPointerCancel);
+  els.main.addEventListener("pointerdown", onPointerDown);
+  els.main.addEventListener("pointermove", onPointerMove, { passive: false });
+  els.main.addEventListener("pointerup", onPointerUp);
+  els.main.addEventListener("pointercancel", onPointerCancel);
 
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
@@ -511,14 +704,14 @@
     if (!els.sheet.hidden) closeSheet();
   });
 
-  // SW registration (needs http/https — skip file://)
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
 
-  // Ensure confirm never shows on boot (CSS [hidden] can be overridden by display:flex).
   els.confirmOverlay.hidden = true;
   confirmResolver = null;
+  setCategory(null);
+  syncExpiryField();
 
   render();
 })();

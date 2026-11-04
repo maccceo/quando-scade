@@ -27,7 +27,13 @@
     </header>
 
     <main class="content" id="main">
-      <ul class="product-list" id="productList" aria-live="polite"></ul>
+      <section class="soon-block" id="soonBlock" aria-labelledby="soonHeading">
+        <h2 class="section-title" id="soonHeading">stanno per scadere!</h2>
+        <ul class="product-list" id="soonList" aria-live="polite"></ul>
+        <p class="soon-empty" id="soonEmpty">niente in scadenza nel breve</p>
+      </section>
+
+      <div id="catalog" class="catalog"></div>
 
       <div class="empty" id="emptyState" hidden>
         <div class="empty-mark" aria-hidden="true"></div>
@@ -62,12 +68,30 @@
         <input type="text" id="productName" name="name" required maxlength="80" placeholder="es. Yogurt greco" enterkeyhint="next" />
         <ul class="suggest" id="suggestions" role="listbox" hidden></ul>
       </label>
-      <label class="field">
+
+      <fieldset class="field category-field">
+        <legend>Categoria</legend>
+        <div class="chip-row" id="categoryChips" role="radiogroup" aria-label="Categoria">
+          <button type="button" class="chip" data-category="colazione" aria-pressed="false">colazione</button>
+          <button type="button" class="chip" data-category="primi" aria-pressed="false">primi</button>
+          <button type="button" class="chip" data-category="secondi" aria-pressed="false">secondi</button>
+          <button type="button" class="chip" data-category="contorni" aria-pressed="false">contorni</button>
+          <button type="button" class="chip" data-category="snack" aria-pressed="false">snack</button>
+        </div>
+      </fieldset>
+
+      <label class="check-row" for="longShelf">
+        <input type="checkbox" id="longShelf" name="longShelf" />
+        <span>lunga conservazione</span>
+      </label>
+
+      <label class="field" id="expiryField">
         <span>Scadenza</span>
         <span class="date-clip">
           <input type="date" id="productExpiry" name="expiry" required />
         </span>
       </label>
+
       <div class="sheet-actions">
         <button type="submit" class="btn primary" id="saveBtn">Salva</button>
         <button type="button" class="btn danger ghost" id="deleteBtn" hidden>Elimina</button>
