@@ -458,6 +458,12 @@
     if (soon.length) fillList(els.soonList, soon);
     else els.soonList.innerHTML = "";
 
+    const openCats = new Set(
+      [...els.catalog.querySelectorAll("details.cat-section[open]")].map(
+        (el) => el.getAttribute("data-cat") || ""
+      )
+    );
+
     const sections = [];
     for (const cat of CATEGORIES) {
       const items = sortByExpiry(all.filter((p) => p.category === cat));
@@ -470,16 +476,17 @@
     }
 
     els.catalog.innerHTML = sections
-      .map(
-        (sec) => `
-      <details class="cat-section" data-cat="${escapeAttr(sec.key)}">
+      .map((sec) => {
+        const openAttr = openCats.has(sec.key) ? " open" : "";
+        return `
+      <details class="cat-section" data-cat="${escapeAttr(sec.key)}"${openAttr}>
         <summary class="cat-summary">
           <span class="cat-title">${escapeHtml(sec.title)}</span>
           <span class="cat-count">${sec.items.length}</span>
         </summary>
         <ul class="product-list">${sec.items.map((p, i) => productItemHtml(p, i)).join("")}</ul>
-      </details>`
-      )
+      </details>`;
+      })
       .join("");
   }
 
