@@ -12,8 +12,9 @@
   const MAX_SOON_DAYS = 30;
 
   const SWIPE_AXIS_LOCK = 10;
-  const SWIPE_REVEAL_MAX = 88;
-  const SWIPE_ACTION = 72;
+  /* Keep in sync with --swipe-reveal / chip geometry in styles.css */
+  const SWIPE_REVEAL_MAX = 92;
+  const SWIPE_ACTION = 80;
 
   /**
    * @typedef {{
