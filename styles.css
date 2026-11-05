@@ -71,11 +71,28 @@ button {
 .topbar {
   display: flex;
   align-items: flex-start;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 12px;
   margin-bottom: 18px;
   padding-top: 4px;
   animation: rise 420ms ease both;
+}
+
+.settings-btn {
+  margin-top: 2px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--line);
+  background: color-mix(in srgb, #fff 70%, var(--bg));
+}
+
+.settings-btn svg {
+  display: block;
+}
+
+.settings-btn:active {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--ok);
 }
 
 .brand {
@@ -171,6 +188,21 @@ button {
   font-size: 0.75rem;
   font-weight: 700;
   text-align: center;
+}
+
+.cat-count.ok {
+  background: var(--accent-soft);
+  color: var(--ok);
+}
+
+.cat-count.soon {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.cat-count.expired {
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .cat-section .product-list {
@@ -439,11 +471,19 @@ button {
 .icon-btn {
   width: 40px;
   height: 40px;
+  padding: 0;
   border-radius: 12px;
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
   color: var(--ink-soft);
   background: var(--bg);
+}
+
+.icon-btn svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 .field {
@@ -493,12 +533,13 @@ button {
 */
 .date-clip {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 40px;
   align-items: center;
   position: relative;
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  min-height: 52px;
   box-sizing: border-box;
   overflow: hidden;
   border-radius: 14px;
@@ -512,11 +553,27 @@ button {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
+.date-placeholder {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-soft);
+  font-weight: 500;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.date-placeholder[hidden] {
+  display: none !important;
+}
+
 .date-clip input[type="date"] {
   display: block;
   width: 100%;
   max-width: 100%;
   min-width: 0 !important;
+  min-height: 52px;
   box-sizing: border-box;
   margin: 0;
   padding: 14px 8px 14px 16px;
@@ -529,6 +586,16 @@ button {
   line-height: 1.25;
   -webkit-appearance: none;
   appearance: none;
+}
+
+/* Hide ugly empty native date text on iOS; placeholder overlay shows instead. */
+.date-clip:not(.has-value) input[type="date"] {
+  color: transparent;
+}
+
+.date-clip:not(.has-value) input[type="date"]::-webkit-datetime-edit,
+.date-clip:not(.has-value) input[type="date"]::-webkit-date-and-time-value {
+  color: transparent;
 }
 
 .date-clip input[type="date"]::-webkit-date-and-time-value {
@@ -553,7 +620,6 @@ button {
   z-index: 2;
   width: 40px;
   height: 40px;
-  margin-right: 4px;
   border-radius: 10px;
   display: grid;
   place-items: center;
@@ -562,12 +628,204 @@ button {
 }
 
 .date-clear[hidden] {
-  display: none !important;
+  visibility: hidden;
+  pointer-events: none;
+  display: grid !important;
 }
 
 .date-clear:active {
   background: color-mix(in srgb, var(--line) 55%, transparent);
   color: var(--ink);
+}
+
+.settings-sheet {
+  display: flex;
+  flex-direction: column;
+  top: 0;
+  bottom: 0;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 100dvh;
+  border-radius: 0;
+  padding:
+    calc(18px + var(--safe-top))
+    22px
+    calc(28px + var(--safe-bottom));
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.settings-sheet[hidden] {
+  display: none !important;
+}
+
+.settings-sheet .sheet-handle {
+  display: none;
+}
+
+.settings-sheet .sheet-head {
+  margin-bottom: 28px;
+  padding-top: 4px;
+}
+
+.settings-block {
+  margin-bottom: 36px;
+}
+
+.settings-label {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.settings-hint {
+  margin: 0 0 16px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.stepper {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: stretch;
+  gap: 8px;
+  max-width: 200px;
+  height: 40px;
+}
+
+.stepper-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1.5px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+}
+
+.stepper-btn:active {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--ok);
+}
+
+.stepper-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.stepper-value {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  padding: 0 8px;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1.5px solid var(--line);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.stepper-value #soonDaysValue {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.stepper-unit {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-top: 2px;
+  line-height: 1;
+}
+
+.settings-cat-move {
+  color: var(--ink-soft);
+}
+
+.settings-cat-move:disabled {
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+.settings-cat-del {
+  color: var(--ink-soft);
+  background: var(--danger-soft);
+  border: 1.5px solid transparent;
+}
+
+.settings-cat-del:active {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--danger) 22%, var(--danger-soft));
+}
+
+.cat-add-btn {
+  color: var(--ok);
+  background: var(--accent-soft);
+}
+
+.cat-add-btn:active {
+  background: color-mix(in srgb, var(--accent) 22%, var(--accent-soft));
+}
+
+.settings-sheet input[type="text"] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 13px 14px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: var(--bg);
+  outline: none;
+}
+
+.settings-sheet input[type="text"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.settings-cats {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-cat-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px 40px 40px;
+  gap: 6px;
+  align-items: center;
+}
+
+.settings-cat-input {
+  margin: 0;
+}
+
+.cat-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  gap: 8px;
+  align-items: center;
 }
 
 .suggest[hidden] {

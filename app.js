@@ -4,11 +4,12 @@
   const STORAGE_KEY = "scadenze.products.v1";
   const NAMES_KEY = "scadenze.names.v1";
   const SUGGESTIONS_KEY = "scadenze.suggestions.v1";
-  /** Inclusive window: today through +4 days counts as soon-to-expire. */
-  const SOON_DAYS = 4;
+  const SETTINGS_KEY = "scadenze.settings.v1";
 
-  const CATEGORIES = ["colazione", "primi", "secondi", "contorni", "snack", "dolci"];
-  const CATEGORY_SET = new Set(CATEGORIES);
+  const DEFAULT_CATEGORIES = ["colazione", "primi", "secondi", "contorni", "snack", "dolci"];
+  const DEFAULT_SOON_DAYS = 4;
+  const MIN_SOON_DAYS = 1;
+  const MAX_SOON_DAYS = 30;
 
   const SWIPE_AXIS_LOCK = 10;
   const SWIPE_REVEAL_MAX = 88;
@@ -23,6 +24,7 @@
    *   longShelf: boolean
    * }} Product
    * @typedef {{ name: string, category: string | null }} Suggestion
+   * @typedef {{ soonDays: number, categories: string[] }} Settings
    */
 
   const $ = (id) => document.getElementById(id);
@@ -34,21 +36,33 @@
     catalog: $("catalog"),
     emptyState: $("emptyState"),
     subtitle: $("subtitle"),
+    settingsBtn: $("settingsBtn"),
     fabAdd: $("fabAdd"),
     sheet: $("formSheet"),
+    settingsSheet: $("settingsSheet"),
     backdrop: $("sheetBackdrop"),
     sheetTitle: $("sheetTitle"),
     sheetClose: $("sheetClose"),
+    settingsClose: $("settingsClose"),
     form: $("productForm"),
     editId: $("editId"),
     productName: $("productName"),
     productExpiry: $("productExpiry"),
-    expiryField: $("expiryField"),
+    dateClip: $("dateClip"),
+    datePlaceholder: $("datePlaceholder"),
     clearExpiry: $("clearExpiry"),
     categoryChips: $("categoryChips"),
     suggestions: $("suggestions"),
     saveBtn: $("saveBtn"),
     deleteBtn: $("deleteBtn"),
+    soonDaysInput: $("soonDaysInput"),
+    soonDaysValue: $("soonDaysValue"),
+    soonDaysMinus: $("soonDaysMinus"),
+    soonDaysPlus: $("soonDaysPlus"),
+    settingsCatList: $("settingsCatList"),
+    newCategoryInput: $("newCategoryInput"),
+    addCategoryBtn: $("addCategoryBtn"),
+    settingsSave: $("settingsSave"),
     toast: $("toast"),
     confirmOverlay: $("confirmOverlay"),
     confirmDialog: $("confirmDialog"),
@@ -62,6 +76,8 @@
   let confirmResolver = null;
   /** @type {string | null} */
   let selectedCategory = null;
+  /** @type {string[]} */
+  let settingsDraftCats = [];
 
   /** @type {{
     li: HTMLElement,
@@ -75,10 +91,81 @@
   } | null} */
   let swipe = null;
 
-  function normalizeCategory(raw) {
+  function slugCategory(raw) {
     if (typeof raw !== "string") return null;
-    const c = raw.trim().toLowerCase();
-    return CATEGORY_SET.has(c) ? c : null;
+    const c = raw.trim().toLowerCase().replace(/\s+/g, " ");
+    return c || null;
+  }
+
+  /** Keep any non-empty category string (including removed/orphan ones). */
+  function normalizeCategory(raw) {
+    return slugCategory(raw);
+  }
+
+  function defaultSettings() {
+    return {
+      soonDays: DEFAULT_SOON_DAYS,
+      categories: [...DEFAULT_CATEGORIES],
+    };
+  }
+
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (!raw) {
+        const defaults = defaultSettings();
+        saveSettings(defaults);
+        return defaults;
+      }
+      const parsed = JSON.parse(raw);
+      const soonDays = clampSoonDays(parsed && parsed.soonDays);
+      const cats = Array.isArray(parsed && parsed.categories)
+        ? parsed.categories.map(slugCategory).filter(Boolean)
+        : [];
+      const unique = [];
+      const seen = new Set();
+      for (const c of cats) {
+        if (seen.has(c)) continue;
+        seen.add(c);
+        unique.push(c);
+      }
+      return {
+        soonDays,
+        categories: unique.length ? unique : [...DEFAULT_CATEGORIES],
+      };
+    } catch {
+      return defaultSettings();
+    }
+  }
+
+  function saveSettings(settings) {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  }
+
+  function clampSoonDays(raw) {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return DEFAULT_SOON_DAYS;
+    return Math.min(MAX_SOON_DAYS, Math.max(MIN_SOON_DAYS, Math.floor(n)));
+  }
+
+  function setSoonDaysUi(days) {
+    const value = clampSoonDays(days);
+    els.soonDaysInput.value = String(value);
+    els.soonDaysValue.textContent = String(value);
+    els.soonDaysMinus.disabled = value <= MIN_SOON_DAYS;
+    els.soonDaysPlus.disabled = value >= MAX_SOON_DAYS;
+  }
+
+  function getSoonDays() {
+    return loadSettings().soonDays;
+  }
+
+  function getCategories() {
+    return loadSettings().categories;
+  }
+
+  function isConfiguredCategory(cat) {
+    return Boolean(cat && getCategories().includes(cat));
   }
 
   /** In-place compatible migration: keep ids/names/expiry; add category/longShelf. */
@@ -101,12 +188,10 @@
 
     let longShelf = Boolean(raw.longShelf);
     if (raw.longShelf == null && expiry == null) {
-      // Old entries always had expiry; if somehow missing, treat as long shelf.
       longShelf = true;
     }
     if (longShelf) expiry = null;
     if (!longShelf && !expiry) {
-      // Keep required-date semantics for non-long-shelf items without a date.
       longShelf = false;
       expiry = null;
     }
@@ -126,7 +211,6 @@
       if (!Array.isArray(list)) return [];
       const dirty = list.some(needsProductMigration);
       const normalized = list.map(normalizeProduct).filter(Boolean);
-      // Persist only when old shape needs category/longShelf fields.
       if (dirty) saveProducts(normalized);
       return normalized;
     } catch {
@@ -147,11 +231,7 @@
       const mapped = list
         .filter((n) => typeof n === "string" && n.trim())
         .map((n) => ({ name: n.trim(), category: null }));
-      if (mapped.length) {
-        localStorage.setItem(SUGGESTIONS_KEY, JSON.stringify(mapped.slice(0, 200)));
-      } else {
-        localStorage.setItem(SUGGESTIONS_KEY, "[]");
-      }
+      localStorage.setItem(SUGGESTIONS_KEY, JSON.stringify(mapped.slice(0, 200)));
     } catch {
       localStorage.setItem(SUGGESTIONS_KEY, "[]");
     }
@@ -238,16 +318,30 @@
   }
 
   function pillClass(days) {
+    const soon = getSoonDays();
     if (days == null) return "shelf";
     if (days < 0) return "expired";
-    if (days <= SOON_DAYS) return "soon";
+    if (days <= soon) return "soon";
     return "";
   }
 
   function isSoon(p) {
     if (p.longShelf || !p.expiry) return false;
     const days = daysUntil(p.expiry);
-    return days != null && days <= SOON_DAYS;
+    return days != null && days <= getSoonDays();
+  }
+
+  /** @returns {"expired"|"soon"|"ok"} */
+  function sectionUrgency(items) {
+    const soon = getSoonDays();
+    let worst = "ok";
+    for (const p of items) {
+      const days = daysUntil(p.expiry);
+      if (days == null) continue;
+      if (days < 0) return "expired";
+      if (days <= soon) worst = "soon";
+    }
+    return worst;
   }
 
   function sortByExpiry(list) {
@@ -295,6 +389,17 @@
     els.suggestions.innerHTML = "";
   }
 
+  function renderCategoryChips() {
+    const cats = getCategories();
+    els.categoryChips.innerHTML = cats
+      .map(
+        (c) =>
+          `<button type="button" class="chip" data-category="${escapeAttr(c)}" aria-pressed="false">${escapeHtml(c)}</button>`
+      )
+      .join("");
+    setCategory(selectedCategory);
+  }
+
   function setCategory(cat) {
     selectedCategory = normalizeCategory(cat);
     els.categoryChips.querySelectorAll(".chip").forEach((btn) => {
@@ -304,20 +409,36 @@
     });
   }
 
-  function syncClearExpiryBtn() {
-    els.clearExpiry.hidden = !els.productExpiry.value;
+  function syncDateFieldUi() {
+    const has = Boolean(els.productExpiry.value);
+    els.clearExpiry.hidden = !has;
+    els.dateClip.classList.toggle("has-value", has);
+    els.datePlaceholder.hidden = has;
   }
 
   function clearExpiryDate() {
     els.productExpiry.value = "";
-    syncClearExpiryBtn();
+    syncDateFieldUi();
+  }
+
+  function openBackdrop() {
+    els.backdrop.hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeBackdropIfIdle() {
+    if (els.sheet.hidden && els.settingsSheet.hidden) {
+      els.backdrop.hidden = true;
+      document.body.style.overflow = "";
+    }
   }
 
   function openSheet({ mode, product } = { mode: "add" }) {
+    closeSettings(false);
     els.sheet.hidden = false;
-    els.backdrop.hidden = false;
-    document.body.style.overflow = "hidden";
+    openBackdrop();
     hideSuggestions();
+    renderCategoryChips();
 
     if (mode === "edit" && product) {
       els.sheetTitle.textContent = "Modifica";
@@ -337,7 +458,7 @@
       els.deleteBtn.hidden = true;
       els.saveBtn.textContent = "Salva";
     }
-    syncClearExpiryBtn();
+    syncDateFieldUi();
 
     window.setTimeout(() => {
       hideSuggestions();
@@ -348,13 +469,93 @@
 
   function closeSheet() {
     els.sheet.hidden = true;
-    els.backdrop.hidden = true;
-    document.body.style.overflow = "";
     els.form.reset();
     els.editId.value = "";
     setCategory(null);
-    syncClearExpiryBtn();
+    syncDateFieldUi();
     hideSuggestions();
+    closeBackdropIfIdle();
+  }
+
+  function renderSettingsCatList() {
+    const last = settingsDraftCats.length - 1;
+    els.settingsCatList.innerHTML = settingsDraftCats
+      .map(
+        (c, i) => `
+      <li class="settings-cat-row" data-index="${i}">
+        <input type="text" class="settings-cat-input" value="${escapeAttr(c)}" maxlength="40" aria-label="Nome categoria" />
+        <button type="button" class="icon-btn settings-cat-move" data-dir="up" data-index="${i}" aria-label="Sposta su" ${i === 0 ? "disabled" : ""}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 14l6-6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button type="button" class="icon-btn settings-cat-move" data-dir="down" data-index="${i}" aria-label="Sposta giù" ${i === last ? "disabled" : ""}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 10l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button type="button" class="icon-btn settings-cat-del" data-index="${i}" aria-label="Elimina">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M5 8h14M10 11v6M14 11v6M9 8V6.5A1.5 1.5 0 0 1 10.5 5h3A1.5 1.5 0 0 1 15 6.5V8M7.5 8l.8 11.2a1.5 1.5 0 0 0 1.5 1.3h4.4a1.5 1.5 0 0 0 1.5-1.3L16.5 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </li>`
+      )
+      .join("");
+  }
+
+  function moveDraftCategory(index, dir) {
+    readDraftCatsFromDom();
+    const to = dir === "up" ? index - 1 : index + 1;
+    if (to < 0 || to >= settingsDraftCats.length) return;
+    const next = [...settingsDraftCats];
+    const [item] = next.splice(index, 1);
+    next.splice(to, 0, item);
+    settingsDraftCats = next;
+    renderSettingsCatList();
+  }
+
+  function readDraftCatsFromDom() {
+    const inputs = [...els.settingsCatList.querySelectorAll(".settings-cat-input")];
+    const next = [];
+    const seen = new Set();
+    for (const input of inputs) {
+      const c = slugCategory(input.value);
+      if (!c || seen.has(c)) continue;
+      seen.add(c);
+      next.push(c);
+    }
+    settingsDraftCats = next;
+  }
+
+  function openSettings() {
+    closeSheet();
+    const settings = loadSettings();
+    settingsDraftCats = [...settings.categories];
+    setSoonDaysUi(settings.soonDays);
+    els.newCategoryInput.value = "";
+    renderSettingsCatList();
+    els.settingsSheet.hidden = false;
+    openBackdrop();
+  }
+
+  function closeSettings(save) {
+    if (!els.settingsSheet.hidden && save) {
+      readDraftCatsFromDom();
+      const settings = {
+        soonDays: clampSoonDays(els.soonDaysInput.value),
+        categories: settingsDraftCats.length ? settingsDraftCats : [...DEFAULT_CATEGORIES],
+      };
+      saveSettings(settings);
+      if (selectedCategory && !settings.categories.includes(selectedCategory)) {
+        selectedCategory = null;
+      }
+      renderCategoryChips();
+      render();
+      showToast("Salvato");
+    }
+    els.settingsSheet.hidden = true;
+    closeBackdropIfIdle();
   }
 
   function renderSuggestions(query) {
@@ -443,6 +644,7 @@
 
   function render() {
     const all = loadProducts();
+    const cats = getCategories();
     const soon = sortByExpiry(all.filter(isSoon));
 
     els.subtitle.textContent =
@@ -465,12 +667,15 @@
     );
 
     const sections = [];
-    for (const cat of CATEGORIES) {
+    for (const cat of cats) {
       const items = sortByExpiry(all.filter((p) => p.category === cat));
       if (!items.length) continue;
       sections.push({ key: cat, title: cat, items });
     }
-    const other = sortByExpiry(all.filter((p) => !p.category));
+    // Orphans (removed categories) + uncategorized → altro
+    const other = sortByExpiry(
+      all.filter((p) => !p.category || !cats.includes(p.category))
+    );
     if (other.length) {
       sections.push({ key: "altro", title: "altro", items: other });
     }
@@ -478,11 +683,12 @@
     els.catalog.innerHTML = sections
       .map((sec) => {
         const openAttr = openCats.has(sec.key) ? " open" : "";
+        const urgency = sectionUrgency(sec.items);
         return `
       <details class="cat-section" data-cat="${escapeAttr(sec.key)}"${openAttr}>
         <summary class="cat-summary">
           <span class="cat-title">${escapeHtml(sec.title)}</span>
-          <span class="cat-count">${sec.items.length}</span>
+          <span class="cat-count ${urgency}">${sec.items.length}</span>
         </summary>
         <ul class="product-list">${sec.items.map((p, i) => productItemHtml(p, i)).join("")}</ul>
       </details>`;
@@ -519,8 +725,7 @@
     if (e.pointerType === "mouse" && e.button !== 0) return;
     const li = e.target.closest(".product-item");
     if (!li || !els.main.contains(li)) return;
-    if (!els.sheet.hidden || isConfirmOpen()) return;
-    // Don't start swipe from the summary toggle.
+    if (!els.sheet.hidden || !els.settingsSheet.hidden || isConfirmOpen()) return;
     if (e.target.closest("summary")) return;
 
     const row = li.querySelector(".product-row");
@@ -614,7 +819,20 @@
   // Events
   els.fabAdd.addEventListener("click", () => openSheet({ mode: "add" }));
   els.sheetClose.addEventListener("click", closeSheet);
-  els.backdrop.addEventListener("click", closeSheet);
+  els.settingsBtn.addEventListener("click", openSettings);
+  els.settingsClose.addEventListener("click", () => closeSettings(false));
+  els.settingsSave.addEventListener("click", () => closeSettings(true));
+  els.backdrop.addEventListener("click", () => {
+    if (!els.sheet.hidden) closeSheet();
+    if (!els.settingsSheet.hidden) closeSettings(false);
+  });
+
+  els.soonDaysMinus.addEventListener("click", () => {
+    setSoonDaysUi(Number(els.soonDaysInput.value) - 1);
+  });
+  els.soonDaysPlus.addEventListener("click", () => {
+    setSoonDaysUi(Number(els.soonDaysInput.value) + 1);
+  });
 
   els.categoryChips.addEventListener("click", (e) => {
     const btn = e.target.closest(".chip[data-category]");
@@ -623,13 +841,59 @@
     setCategory(selectedCategory === cat ? null : cat);
   });
 
+  els.addCategoryBtn.addEventListener("click", () => {
+    readDraftCatsFromDom();
+    const c = slugCategory(els.newCategoryInput.value);
+    if (!c) {
+      showToast("Scrivi un nome");
+      return;
+    }
+    if (settingsDraftCats.includes(c)) {
+      showToast("C’è già");
+      return;
+    }
+    settingsDraftCats.push(c);
+    els.newCategoryInput.value = "";
+    renderSettingsCatList();
+  });
+
+  els.newCategoryInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      els.addCategoryBtn.click();
+    }
+  });
+
+  els.settingsCatList.addEventListener("click", (e) => {
+    const move = e.target.closest(".settings-cat-move");
+    if (move && !move.disabled) {
+      const idx = Number(move.getAttribute("data-index"));
+      const dir = move.getAttribute("data-dir");
+      if (Number.isInteger(idx) && (dir === "up" || dir === "down")) {
+        moveDraftCategory(idx, dir);
+      }
+      return;
+    }
+    const del = e.target.closest(".settings-cat-del");
+    if (!del) return;
+    readDraftCatsFromDom();
+    const idx = Number(del.getAttribute("data-index"));
+    if (!Number.isInteger(idx)) return;
+    settingsDraftCats.splice(idx, 1);
+    renderSettingsCatList();
+  });
+
+  els.settingsCatList.addEventListener("change", () => {
+    readDraftCatsFromDom();
+  });
+
   els.clearExpiry.addEventListener("click", (e) => {
     e.preventDefault();
     clearExpiryDate();
   });
 
-  els.productExpiry.addEventListener("input", syncClearExpiryBtn);
-  els.productExpiry.addEventListener("change", syncClearExpiryBtn);
+  els.productExpiry.addEventListener("input", syncDateFieldUi);
+  els.productExpiry.addEventListener("change", syncDateFieldUi);
 
   els.productName.addEventListener("input", () => {
     renderSuggestions(els.productName.value);
@@ -644,7 +908,8 @@
     if (!btn) return;
     els.productName.value = btn.getAttribute("data-name") || "";
     const cat = btn.getAttribute("data-category") || "";
-    setCategory(cat || null);
+    // Only preselect if category still exists in settings.
+    setCategory(isConfiguredCategory(cat) ? cat : null);
     hideSuggestions();
     els.productExpiry.focus();
   });
@@ -706,6 +971,7 @@
       return;
     }
     if (!els.sheet.hidden) closeSheet();
+    if (!els.settingsSheet.hidden) closeSettings(false);
   });
 
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
@@ -714,8 +980,10 @@
 
   els.confirmOverlay.hidden = true;
   confirmResolver = null;
+  loadSettings();
+  renderCategoryChips();
   setCategory(null);
-  syncClearExpiryBtn();
+  syncDateFieldUi();
 
   render();
 })();
