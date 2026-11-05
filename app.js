@@ -65,7 +65,6 @@
     settingsSave: $("settingsSave"),
     toast: $("toast"),
     confirmOverlay: $("confirmOverlay"),
-    confirmDialog: $("confirmDialog"),
     confirmMessage: $("confirmMessage"),
     confirmYes: $("confirmYes"),
     confirmNo: $("confirmNo"),
@@ -78,6 +77,8 @@
   let selectedCategory = null;
   /** @type {string[]} */
   let settingsDraftCats = [];
+  /** @type {Settings | null} */
+  let cachedSettings = null;
 
   /** @type {{
     li: HTMLElement,
@@ -91,15 +92,11 @@
   } | null} */
   let swipe = null;
 
+  /** Keep any non-empty category string (including removed/orphan ones). */
   function slugCategory(raw) {
     if (typeof raw !== "string") return null;
     const c = raw.trim().toLowerCase().replace(/\s+/g, " ");
     return c || null;
-  }
-
-  /** Keep any non-empty category string (including removed/orphan ones). */
-  function normalizeCategory(raw) {
-    return slugCategory(raw);
   }
 
   function defaultSettings() {
@@ -110,6 +107,7 @@
   }
 
   function loadSettings() {
+    if (cachedSettings) return cachedSettings;
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
       if (!raw) {
@@ -118,7 +116,6 @@
         return defaults;
       }
       const parsed = JSON.parse(raw);
-      const soonDays = clampSoonDays(parsed && parsed.soonDays);
       const cats = Array.isArray(parsed && parsed.categories)
         ? parsed.categories.map(slugCategory).filter(Boolean)
         : [];
@@ -129,16 +126,19 @@
         seen.add(c);
         unique.push(c);
       }
-      return {
-        soonDays,
+      cachedSettings = {
+        soonDays: clampSoonDays(parsed && parsed.soonDays),
         categories: unique.length ? unique : [...DEFAULT_CATEGORIES],
       };
+      return cachedSettings;
     } catch {
-      return defaultSettings();
+      cachedSettings = defaultSettings();
+      return cachedSettings;
     }
   }
 
   function saveSettings(settings) {
+    cachedSettings = settings;
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   }
 
@@ -184,15 +184,12 @@
       expiry = raw.expiry;
     }
 
-    const category = normalizeCategory(raw.category);
+    const category = slugCategory(raw.category);
 
     let longShelf = Boolean(raw.longShelf);
-    if (raw.longShelf == null && expiry == null) {
+    if (raw.longShelf == null) longShelf = !expiry;
+    if (longShelf || !expiry) {
       longShelf = true;
-    }
-    if (longShelf) expiry = null;
-    if (!longShelf && !expiry) {
-      longShelf = false;
       expiry = null;
     }
 
@@ -223,14 +220,15 @@
   }
 
   function migrateSuggestionsFromLegacyNames() {
-    if (localStorage.getItem(SUGGESTIONS_KEY)) return;
+    if (localStorage.getItem(SUGGESTIONS_KEY) != null) return;
     try {
       const raw = localStorage.getItem(NAMES_KEY);
       const list = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(list)) return;
-      const mapped = list
-        .filter((n) => typeof n === "string" && n.trim())
-        .map((n) => ({ name: n.trim(), category: null }));
+      const mapped = Array.isArray(list)
+        ? list
+            .filter((n) => typeof n === "string" && n.trim())
+            .map((n) => ({ name: n.trim(), category: null }))
+        : [];
       localStorage.setItem(SUGGESTIONS_KEY, JSON.stringify(mapped.slice(0, 200)));
     } catch {
       localStorage.setItem(SUGGESTIONS_KEY, "[]");
@@ -249,7 +247,7 @@
           if (!s || typeof s !== "object") return null;
           const name = typeof s.name === "string" ? s.name.trim() : "";
           if (!name) return null;
-          return { name, category: normalizeCategory(s.category) };
+          return { name, category: slugCategory(s.category) };
         })
         .filter(Boolean);
     } catch {
@@ -260,7 +258,7 @@
   function rememberSuggestion(name, category) {
     const n = name.trim();
     if (!n) return;
-    const cat = normalizeCategory(category);
+    const cat = slugCategory(category);
     const list = loadSuggestions();
     const lower = n.toLowerCase();
     const next = list.filter((x) => x.name.toLowerCase() !== lower);
@@ -326,7 +324,6 @@
   }
 
   function isSoon(p) {
-    if (p.longShelf || !p.expiry) return false;
     const days = daysUntil(p.expiry);
     return days != null && days <= getSoonDays();
   }
@@ -401,7 +398,7 @@
   }
 
   function setCategory(cat) {
-    selectedCategory = normalizeCategory(cat);
+    selectedCategory = slugCategory(cat);
     els.categoryChips.querySelectorAll(".chip").forEach((btn) => {
       const on = btn.getAttribute("data-category") === selectedCategory;
       btn.setAttribute("aria-pressed", String(on));
@@ -441,7 +438,7 @@
     renderCategoryChips();
 
     if (mode === "edit" && product) {
-      els.sheetTitle.textContent = "Modifica";
+      els.sheetTitle.textContent = "Modifica prodotto";
       els.editId.value = product.id;
       els.productName.value = product.name;
       setCategory(product.category);
@@ -463,7 +460,6 @@
     window.setTimeout(() => {
       hideSuggestions();
       els.productName.focus({ preventScroll: true });
-      hideSuggestions();
     }, 50);
   }
 
@@ -552,7 +548,7 @@
       }
       renderCategoryChips();
       render();
-      showToast("Salvato");
+      showToast("Impostazioni salvate");
     }
     els.settingsSheet.hidden = true;
     closeBackdropIfIdle();
@@ -606,7 +602,7 @@
   }
 
   async function confirmDelete(id) {
-    const ok = await askConfirm("Sei sicuro di voler eliminare l’elemento?");
+    const ok = await askConfirm("Eliminare questo prodotto?");
     if (!ok) return;
     deleteProduct(id);
     render();
@@ -621,7 +617,7 @@
   function productItemHtml(p, i) {
     const days = daysUntil(p.expiry);
     const pc = pillClass(days);
-    const pillText = p.expiry ? formatExpiryShort(p.expiry) : "senza data";
+    const pillText = p.expiry ? formatExpiryShort(p.expiry) : "senza scadenza";
     const delay = `${Math.min(i, 12) * 28}ms`;
     return `
       <li class="product-item" data-id="${escapeAttr(p.id)}" style="animation-delay:${delay}">
@@ -644,7 +640,8 @@
 
   function render() {
     const all = loadProducts();
-    const cats = getCategories();
+    const settings = loadSettings();
+    const cats = settings.categories;
     const soon = sortByExpiry(all.filter(isSoon));
 
     els.subtitle.textContent =
@@ -666,6 +663,7 @@
       )
     );
 
+    const configured = new Set(cats);
     const sections = [];
     for (const cat of cats) {
       const items = sortByExpiry(all.filter((p) => p.category === cat));
@@ -674,7 +672,7 @@
     }
     // Orphans (removed categories) + uncategorized → altro
     const other = sortByExpiry(
-      all.filter((p) => !p.category || !cats.includes(p.category))
+      all.filter((p) => !p.category || !configured.has(p.category))
     );
     if (other.length) {
       sections.push({ key: "altro", title: "altro", items: other });
@@ -701,7 +699,7 @@
     const payload = {
       name,
       expiry: longShelf ? null : expiry,
-      category: normalizeCategory(category),
+      category: slugCategory(category),
       longShelf: Boolean(longShelf),
     };
     if (id) {
@@ -845,11 +843,11 @@
     readDraftCatsFromDom();
     const c = slugCategory(els.newCategoryInput.value);
     if (!c) {
-      showToast("Scrivi un nome");
+      showToast("Inserisci un nome");
       return;
     }
     if (settingsDraftCats.includes(c)) {
-      showToast("C’è già");
+      showToast("Categoria già presente");
       return;
     }
     settingsDraftCats.push(c);
@@ -945,7 +943,7 @@
   els.deleteBtn.addEventListener("click", async () => {
     const id = els.editId.value;
     if (!id) return;
-    const ok = await askConfirm("Sei sicuro di voler eliminare l’elemento?");
+    const ok = await askConfirm("Eliminare questo prodotto?");
     if (!ok) return;
     deleteProduct(id);
     closeSheet();
@@ -980,10 +978,7 @@
 
   els.confirmOverlay.hidden = true;
   confirmResolver = null;
-  loadSettings();
   renderCategoryChips();
-  setCategory(null);
   syncDateFieldUi();
-
   render();
 })();

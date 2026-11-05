@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Quando scade?" />
-  <meta name="description" content="Tieni d'occhio la scadenza dei prodotti alimentari." />
+  <meta name="description" content="Traccia i prodotti alimentari e le date di scadenza." />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
@@ -42,7 +42,7 @@
       <div class="empty" id="emptyState" hidden>
         <div class="empty-mark" aria-hidden="true"></div>
         <h2>Niente in frigo (ancora)</h2>
-        <p>Aggiungi un prodotto e la sua data di scadenza.</p>
+        <p>Aggiungi un prodotto per iniziare. La data di scadenza è facoltativa.</p>
       </div>
     </main>
 
@@ -100,7 +100,6 @@
 
   <!-- Settings sheet -->
   <aside class="sheet settings-sheet" id="settingsSheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
-    <div class="sheet-handle" aria-hidden="true"></div>
     <header class="sheet-head">
       <h2 id="settingsTitle">Impostazioni</h2>
       <button type="button" class="icon-btn" id="settingsClose" aria-label="Chiudi">
@@ -144,7 +143,7 @@
 
   <div class="confirm-overlay" id="confirmOverlay" hidden>
     <div class="confirm-dialog" id="confirmDialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmMessage">
-      <p id="confirmMessage">Sei sicuro di voler eliminare l’elemento?</p>
+      <p id="confirmMessage">Eliminare questo prodotto?</p>
       <div class="confirm-actions">
         <button type="button" class="btn ghost" id="confirmNo">No</button>
         <button type="button" class="btn danger" id="confirmYes">Sì</button>

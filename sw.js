@@ -1,5 +1,5 @@
 /* Scadenze service worker — cache-first for app shell */
-const CACHE = "scadenze-v21";
+const CACHE = "scadenze-v23";
 const ASSETS = [
   "./",
   "./index.html",
